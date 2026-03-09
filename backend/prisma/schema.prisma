@@ -7,7 +7,586 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums
+model User {
+  id                     String                  @id @default(cuid())
+  email                  String                  @unique
+  password               String
+  firstName              String
+  lastName               String
+  role                   UserRole                @default(COMMUNITY_MEMBER)
+  emailVerified          Boolean                 @default(false)
+  verificationToken      String?
+  resetPasswordToken     String?
+  resetPasswordExpires   DateTime?
+  gdprConsent            Boolean                 @default(false)
+  gdprConsentDate        DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  announcements          Announcement[]
+  business               Business?
+  certificates           Certificate[]
+  corporateVolunteerings CorporateVolunteering[]
+  enrollments            Enrollment[]
+  events                 Event[]
+  eventRegistrations     EventRegistration[]
+  forumComments          ForumComment[]
+  forumLikes             ForumLike[]
+  forumPosts             ForumPost[]
+  learner                Learner?
+  lessonCompletions      LessonCompletion[]
+  notifications          Notification[]
+  posts                  Post[]
+  postLikes              PostLike[]
+  postComments           PostComment[]
+  quizResults            QuizResult[]
+  resources              Resource[]
+  testimonials           Testimonial[]
+  achievements           UserAchievement[]
+  profile                UserProfile?
+  volunteer              Volunteer?
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Post {
+  id           String        @id @default(cuid())
+  userId       String
+  content      String
+  images       String[]      @default([])
+  location     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user         User          @relation(fields: [userId], references: [id])
+  postLikes    PostLike[]
+  postComments PostComment[]
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  bio         String?
+  avatar      String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  dateOfBirth DateTime?
+  skills      String[]
+  interests   String[]
+  languages   String[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model Business {
+  id                    String                     @id @default(cuid())
+  userId                String                     @unique
+  companyName           String
+  companyEmail          String
+  companyPhone          String?
+  website               String?
+  industry              String
+  size                  String
+  description           String?
+  logo                  String?
+  address               String?
+  city                  String?
+  country               String?
+  diversityCommitment   String?
+  badgeLevel            BadgeLevel?                @default(SUPPORTER)
+  verificationStatus    BusinessVerificationStatus @default(PENDING)
+  verifiedAt            DateTime?
+  csrReport             String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  user                  User                       @relation(fields: [userId], references: [id])
+  corporateVolunteering CorporateVolunteering[]
+  diversityPledge       DiversityPledge?
+  sponsorships          Sponsorship[]
+  testimonials          Testimonial[]
+}
+
+model DiversityPledge {
+  id         String    @id @default(cuid())
+  businessId String    @unique
+  signedAt   DateTime  @default(now())
+  content    String
+  expiresAt  DateTime?
+  business   Business  @relation(fields: [businessId], references: [id])
+}
+
+model CorporateVolunteering {
+  id          String   @id @default(cuid())
+  businessId  String
+  volunteerId String
+  hours       Int
+  date        DateTime @default(now())
+  project     String?
+  createdAt   DateTime @default(now())
+  business    Business @relation(fields: [businessId], references: [id])
+  volunteer   User     @relation(fields: [volunteerId], references: [id])
+}
+
+model Course {
+  id           String           @id @default(cuid())
+  title        String
+  description  String
+  level        CourseLevel      @default(BEGINNER)
+  duration     Int
+  thumbnail    String?
+  price        Float?           @default(0)
+  isPublished  Boolean          @default(false)
+  category     String
+  tags         String[]
+  cpdHours     Float?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  certificates Certificate[]
+  modules      CourseModule[]
+  resources    CourseResource[]
+  enrollments  Enrollment[]
+  quizzes      Quiz[]
+}
+
+model CourseModule {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  description String?
+  order       Int
+  videoUrl    String?
+  content     String?
+  duration    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  course      Course   @relation(fields: [courseId], references: [id])
+  lessons     Lesson[]
+}
+
+model Lesson {
+  id          String             @id @default(cuid())
+  moduleId    String
+  title       String
+  content     String?
+  videoUrl    String?
+  duration    Int?
+  order       Int
+  isPreview   Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  module      CourseModule       @relation(fields: [moduleId], references: [id])
+  completions LessonCompletion[]
+}
+
+model LessonCompletion {
+  id          String    @id @default(cuid())
+  lessonId    String
+  userId      String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  lesson      Lesson    @relation(fields: [lessonId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model Enrollment {
+  id          String    @id @default(cuid())
+  userId      String
+  courseId    String
+  progress    Float     @default(0)
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+  expiresAt   DateTime?
+  course      Course    @relation(fields: [courseId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+}
+
+model Certificate {
+  id               String    @id @default(cuid())
+  userId           String
+  courseId         String
+  certificateUrl   String
+  issuedAt         DateTime  @default(now())
+  expiryDate       DateTime?
+  verificationCode String    @unique
+  course           Course    @relation(fields: [courseId], references: [id])
+  user             User      @relation(fields: [userId], references: [id])
+}
+
+model Quiz {
+  id           String         @id @default(cuid())
+  courseId     String
+  title        String
+  description  String?
+  passingScore Int            @default(70)
+  timeLimit    Int?
+  attempts     Int            @default(1)
+  createdAt    DateTime       @default(now())
+  course       Course         @relation(fields: [courseId], references: [id])
+  questions    QuizQuestion[]
+  results      QuizResult[]
+}
+
+model QuizQuestion {
+  id            String @id @default(cuid())
+  quizId        String
+  question      String
+  type          String
+  options       Json?
+  correctAnswer String
+  points        Int    @default(1)
+  order         Int
+  quiz          Quiz   @relation(fields: [quizId], references: [id])
+}
+
+model QuizResult {
+  id          String   @id @default(cuid())
+  quizId      String
+  userId      String
+  score       Int
+  passed      Boolean
+  startedAt   DateTime
+  completedAt DateTime
+  answers     Json
+  quiz        Quiz     @relation(fields: [quizId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Event {
+  id            String              @id @default(cuid())
+  title         String
+  description   String
+  type          String
+  category      String
+  startDate     DateTime
+  endDate       DateTime
+  location      String?
+  online        Boolean             @default(false)
+  meetingUrl    String?
+  capacity      Int
+  price         Float?              @default(0)
+  status        EventStatus         @default(DRAFT)
+  image         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  organizerId   String
+  organizer     User                @relation(fields: [organizerId], references: [id])
+  feedback      EventFeedback[]
+  registrations EventRegistration[]
+  tickets       Ticket[]
+}
+
+model Ticket {
+  id                 String              @id @default(cuid())
+  eventId            String
+  type               TicketType          @default(FREE)
+  name               String
+  price              Float?              @default(0)
+  quantity           Int
+  available          Int
+  description        String?
+  salesStart         DateTime
+  salesEnd           DateTime
+  eventRegistrations EventRegistration[]
+  event              Event               @relation(fields: [eventId], references: [id])
+}
+
+model EventRegistration {
+  id           String    @id @default(cuid())
+  eventId      String
+  userId       String
+  ticketId     String?
+  qrCode       String
+  checkedIn    Boolean   @default(false)
+  checkedInAt  DateTime?
+  registeredAt DateTime  @default(now())
+  event        Event     @relation(fields: [eventId], references: [id])
+  ticket       Ticket?   @relation(fields: [ticketId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+model Volunteer {
+  id                   String                @id @default(cuid())
+  userId               String                @unique
+  availability         String?
+  interests            String[]
+  skills               String[]
+  totalHours           Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  achievements         UserAchievement[]
+  user                 User                  @relation(fields: [userId], references: [id])
+  volunteerAssignments VolunteerAssignment[]
+  hours                VolunteerHour[]
+  tasks                VolunteerTask[]
+}
+
+model VolunteerTask {
+  id             String                @id @default(cuid())
+  title          String
+  description    String
+  project        String?
+  startDate      DateTime
+  endDate        DateTime?
+  hours          Int
+  status         TaskStatus            @default(OPEN)
+  volunteerId    String?
+  createdAt      DateTime              @default(now())
+  assignments    VolunteerAssignment[]
+  volunteerHours VolunteerHour[]
+  volunteer      Volunteer?            @relation(fields: [volunteerId], references: [id])
+}
+
+model VolunteerAssignment {
+  id          String           @id @default(cuid())
+  taskId      String
+  volunteerId String
+  assignedAt  DateTime         @default(now())
+  completedAt DateTime?
+  status      AssignmentStatus @default(ASSIGNED)
+  task        VolunteerTask    @relation(fields: [taskId], references: [id])
+  volunteer   Volunteer        @relation(fields: [volunteerId], references: [id])
+}
+
+model VolunteerHour {
+  id          String         @id @default(cuid())
+  volunteerId String
+  taskId      String?
+  hours       Int
+  date        DateTime       @default(now())
+  verified    Boolean        @default(false)
+  verifiedBy  String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  task        VolunteerTask? @relation(fields: [taskId], references: [id])
+  volunteer   Volunteer      @relation(fields: [volunteerId], references: [id])
+}
+
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String
+  category    String
+  fileUrl     String?
+  content     String?
+  language    String   @default("en")
+  tags        String[]
+  downloads   Int      @default(0)
+  views       Int      @default(0)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+}
+
+model CommunityProject {
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  goal         Float
+  raised       Float         @default(0)
+  category     String
+  location     String?
+  startDate    DateTime
+  endDate      DateTime?
+  status       ProjectStatus @default(PENDING)
+  organization String
+  contactEmail String
+  image        String?
+  createdAt    DateTime      @default(now())
+  sponsorships Sponsorship[]
+}
+
+model Sponsorship {
+  id          String            @id @default(cuid())
+  businessId  String
+  projectId   String
+  amount      Float
+  message     String?
+  status      SponsorshipStatus @default(PENDING)
+  sponsoredAt DateTime          @default(now())
+  approvedAt  DateTime?
+  business    Business          @relation(fields: [businessId], references: [id])
+  project     CommunityProject  @relation(fields: [projectId], references: [id])
+}
+
+model ForumPost {
+  id        String         @id @default(cuid())
+  title     String
+  content   String
+  category  String
+  tags      String[]
+  views     Int            @default(0)
+  isPinned  Boolean        @default(false)
+  isLocked  Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  authorId  String
+  comments  ForumComment[]
+  likes     ForumLike[]
+  author    User           @relation(fields: [authorId], references: [id])
+}
+
+model ForumComment {
+  id        String    @id @default(cuid())
+  content   String
+  postId    String
+  authorId  String
+  parentId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  author    User      @relation(fields: [authorId], references: [id])
+  post      ForumPost @relation(fields: [postId], references: [id])
+}
+
+model ForumLike {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime  @default(now())
+  post      ForumPost @relation(fields: [postId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  type        String
+  priority    String
+  publishedAt DateTime  @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+}
+
+model Achievement {
+  id               String            @id @default(cuid())
+  name             String
+  description      String
+  badge            String?
+  points           Int               @default(10)
+  type             String
+  criteria         Json
+  createdAt        DateTime          @default(now())
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  awardedAt     DateTime    @default(now())
+  volunteerId   String?
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+  volunteer     Volunteer?  @relation(fields: [volunteerId], references: [id])
+
+  @@unique([userId, achievementId])
+}
+
+model Testimonial {
+  id         String    @id @default(cuid())
+  content    String
+  rating     Int?      @default(5)
+  userId     String
+  businessId String?
+  isApproved Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  business   Business? @relation(fields: [businessId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+}
+
+model ImpactMetric {
+  id          String   @id @default(cuid())
+  name        String
+  value       Int
+  category    String
+  date        DateTime @default(now())
+  description String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model Learner {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model CourseResource {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  type      String
+  url       String
+  createdAt DateTime @default(now())
+  course    Course   @relation(fields: [courseId], references: [id])
+}
+
+model EventFeedback {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id])
+}
+
 enum UserRole {
   ADMIN
   VOLUNTEER
@@ -46,343 +625,6 @@ enum TicketType {
   PAID
 }
 
-// Models
-model User {
-  id                   String    @id @default(cuid())
-  email                String    @unique
-  password             String
-  firstName            String
-  lastName             String
-  role                 UserRole  @default(COMMUNITY_MEMBER)
-  emailVerified        Boolean   @default(false)
-  verificationToken    String?
-  resetPasswordToken   String?
-  resetPasswordExpires DateTime?
-  gdprConsent          Boolean   @default(false)
-  gdprConsentDate      DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  // Relations
-  profile                UserProfile?
-  business               Business?
-  volunteer              Volunteer?
-  learner                Learner?
-  enrollments            Enrollment[]
-  eventRegistrations     EventRegistration[]
-  testimonials           Testimonial[]
-  forumPosts             ForumPost[]
-  forumComments          ForumComment[]
-  achievements           UserAchievement[]
-  corporateVolunteerings CorporateVolunteering[]
-  lessonCompletions      LessonCompletion[]
-  certificates           Certificate[]
-  quizResults            QuizResult[]
-  events                 Event[]
-  resources              Resource[]
-  forumLikes             ForumLike[]
-  announcements          Announcement[]
-}
-
-model UserProfile {
-  id          String    @id @default(cuid())
-  userId      String    @unique
-  user        User      @relation(fields: [userId], references: [id])
-  bio         String?
-  avatar      String?
-  phone       String?
-  address     String?
-  city        String?
-  country     String?
-  dateOfBirth DateTime?
-  skills      String[]
-  interests   String[]
-  languages   String[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model Business {
-  id                  String                     @id @default(cuid())
-  userId              String                     @unique
-  user                User                       @relation(fields: [userId], references: [id])
-  companyName         String
-  companyEmail        String
-  companyPhone        String?
-  website             String?
-  industry            String
-  size                String
-  description         String?
-  logo                String?
-  address             String?
-  city                String?
-  country             String?
-  diversityCommitment String?
-  badgeLevel          BadgeLevel?                @default(SUPPORTER)
-  verificationStatus  BusinessVerificationStatus @default(PENDING)
-  verifiedAt          DateTime?
-  csrReport           String?
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
-
-  // Relations
-  diversityPledge       DiversityPledge?
-  corporateVolunteering CorporateVolunteering[]
-  sponsorships          Sponsorship[]
-  testimonials          Testimonial[]
-}
-
-model DiversityPledge {
-  id         String    @id @default(cuid())
-  businessId String    @unique
-  business   Business  @relation(fields: [businessId], references: [id])
-  signedAt   DateTime  @default(now())
-  content    String
-  expiresAt  DateTime?
-}
-
-model CorporateVolunteering {
-  id          String   @id @default(cuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id])
-  volunteerId String
-  volunteer   User     @relation(fields: [volunteerId], references: [id])
-  hours       Int
-  date        DateTime @default(now())
-  project     String?
-  createdAt   DateTime @default(now())
-}
-
-// Course Models
-model Course {
-  id          String      @id @default(cuid())
-  title       String
-  description String
-  level       CourseLevel @default(BEGINNER)
-  duration    Int // in minutes
-  thumbnail   String?
-  price       Float?      @default(0)
-  isPublished Boolean     @default(false)
-  category    String
-  tags        String[]
-  cpdHours    Float?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // Relations
-  modules      CourseModule[]
-  enrollments  Enrollment[]
-  certificates Certificate[]
-  resources    CourseResource[]
-  quizzes      Quiz[]
-}
-
-model CourseModule {
-  id          String   @id @default(cuid())
-  courseId    String
-  course      Course   @relation(fields: [courseId], references: [id])
-  title       String
-  description String?
-  order       Int
-  videoUrl    String?
-  content     String?
-  duration    Int? // in minutes
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  lessons Lesson[]
-}
-
-model Lesson {
-  id        String       @id @default(cuid())
-  moduleId  String
-  module    CourseModule @relation(fields: [moduleId], references: [id])
-  title     String
-  content   String?
-  videoUrl  String?
-  duration  Int? // in minutes
-  order     Int
-  isPreview Boolean      @default(false)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  // Relations
-  completions LessonCompletion[]
-}
-
-model LessonCompletion {
-  id          String    @id @default(cuid())
-  lessonId    String
-  lesson      Lesson    @relation(fields: [lessonId], references: [id])
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  completed   Boolean   @default(false)
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-}
-
-model Enrollment {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  courseId    String
-  course      Course    @relation(fields: [courseId], references: [id])
-  progress    Float     @default(0)
-  enrolledAt  DateTime  @default(now())
-  completedAt DateTime?
-  expiresAt   DateTime?
-
-  @@unique([userId, courseId])
-}
-
-model Certificate {
-  id               String    @id @default(cuid())
-  userId           String
-  user             User      @relation(fields: [userId], references: [id])
-  courseId         String
-  course           Course    @relation(fields: [courseId], references: [id])
-  certificateUrl   String
-  issuedAt         DateTime  @default(now())
-  expiryDate       DateTime?
-  verificationCode String    @unique
-}
-
-model Quiz {
-  id           String   @id @default(cuid())
-  courseId     String
-  course       Course   @relation(fields: [courseId], references: [id])
-  title        String
-  description  String?
-  passingScore Int      @default(70)
-  timeLimit    Int? // in minutes
-  attempts     Int      @default(1)
-  createdAt    DateTime @default(now())
-
-  // Relations
-  questions QuizQuestion[]
-  results   QuizResult[]
-}
-
-model QuizQuestion {
-  id            String @id @default(cuid())
-  quizId        String
-  quiz          Quiz   @relation(fields: [quizId], references: [id])
-  question      String
-  type          String // multiple_choice, true_false, text
-  options       Json? // For multiple choice
-  correctAnswer String
-  points        Int    @default(1)
-  order         Int
-}
-
-model QuizResult {
-  id          String   @id @default(cuid())
-  quizId      String
-  quiz        Quiz     @relation(fields: [quizId], references: [id])
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  score       Int
-  passed      Boolean
-  startedAt   DateTime
-  completedAt DateTime
-  answers     Json // Store user answers
-}
-
-// Event Models
-model Event {
-  id          String      @id @default(cuid())
-  title       String
-  description String
-  type        String // workshop, seminar, networking, volunteer
-  category    String
-  startDate   DateTime
-  endDate     DateTime
-  location    String?
-  online      Boolean     @default(false)
-  meetingUrl  String?
-  capacity    Int
-  price       Float?      @default(0)
-  status      EventStatus @default(DRAFT)
-  image       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // Relations
-  organizer     User                @relation(fields: [organizerId], references: [id])
-  organizerId   String
-  tickets       Ticket[]
-  registrations EventRegistration[]
-  feedback      EventFeedback[]
-}
-
-model Ticket {
-  id                 String              @id @default(cuid())
-  eventId            String
-  event              Event               @relation(fields: [eventId], references: [id])
-  type               TicketType          @default(FREE)
-  name               String
-  price              Float?              @default(0)
-  quantity           Int
-  available          Int
-  description        String?
-  salesStart         DateTime
-  salesEnd           DateTime
-  eventRegistrations EventRegistration[]
-}
-
-model EventRegistration {
-  id           String    @id @default(cuid())
-  eventId      String
-  event        Event     @relation(fields: [eventId], references: [id])
-  userId       String
-  user         User      @relation(fields: [userId], references: [id])
-  ticketId     String?
-  ticket       Ticket?   @relation(fields: [ticketId], references: [id])
-  qrCode       String
-  checkedIn    Boolean   @default(false)
-  checkedInAt  DateTime?
-  registeredAt DateTime  @default(now())
-
-  @@unique([eventId, userId])
-}
-
-// Volunteer Models
-model Volunteer {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id])
-  availability String?
-  interests    String[]
-  skills       String[]
-  totalHours   Int      @default(0)
-  createdAt    DateTime @default(now())
-
-  // Relations
-  tasks                VolunteerTask[]
-  hours                VolunteerHour[]
-  achievements         UserAchievement[]
-  volunteerAssignments VolunteerAssignment[]
-}
-
-model VolunteerTask {
-  id          String     @id @default(cuid())
-  title       String
-  description String
-  project     String?
-  startDate   DateTime
-  endDate     DateTime?
-  hours       Int
-  status      TaskStatus @default(OPEN)
-  volunteerId String?
-  volunteer   Volunteer? @relation(fields: [volunteerId], references: [id])
-  createdAt   DateTime   @default(now())
-
-  // Relations
-  assignments    VolunteerAssignment[]
-  volunteerHours VolunteerHour[]
-}
-
 enum TaskStatus {
   OPEN
   ASSIGNED
@@ -390,79 +632,11 @@ enum TaskStatus {
   CANCELLED
 }
 
-model VolunteerAssignment {
-  id          String           @id @default(cuid())
-  taskId      String
-  task        VolunteerTask    @relation(fields: [taskId], references: [id])
-  volunteerId String
-  volunteer   Volunteer        @relation(fields: [volunteerId], references: [id])
-  assignedAt  DateTime         @default(now())
-  completedAt DateTime?
-  status      AssignmentStatus @default(ASSIGNED)
-}
-
 enum AssignmentStatus {
   ASSIGNED
   IN_PROGRESS
   COMPLETED
   CANCELLED
-}
-
-model VolunteerHour {
-  id          String         @id @default(cuid())
-  volunteerId String
-  volunteer   Volunteer      @relation(fields: [volunteerId], references: [id])
-  taskId      String?
-  task        VolunteerTask? @relation(fields: [taskId], references: [id])
-  hours       Int
-  date        DateTime       @default(now())
-  verified    Boolean        @default(false)
-  verifiedBy  String?
-  notes       String?
-  createdAt   DateTime       @default(now())
-}
-
-// Resource Models
-model Resource {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  type        String // guide, toolkit, document, video
-  category    String
-  fileUrl     String?
-  content     String? // for text-based resources
-  language    String   @default("en")
-  tags        String[]
-  downloads   Int      @default(0)
-  views       Int      @default(0)
-  isPublished Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  author   User   @relation(fields: [authorId], references: [id])
-  authorId String
-}
-
-// Sponsorship Models
-model CommunityProject {
-  id           String        @id @default(cuid())
-  title        String
-  description  String
-  goal         Float
-  raised       Float         @default(0)
-  category     String
-  location     String?
-  startDate    DateTime
-  endDate      DateTime?
-  status       ProjectStatus @default(PENDING)
-  organization String
-  contactEmail String
-  image        String?
-  createdAt    DateTime      @default(now())
-
-  // Relations
-  sponsorships Sponsorship[]
 }
 
 enum ProjectStatus {
@@ -473,168 +647,9 @@ enum ProjectStatus {
   CANCELLED
 }
 
-model Sponsorship {
-  id          String            @id @default(cuid())
-  businessId  String
-  business    Business          @relation(fields: [businessId], references: [id])
-  projectId   String
-  project     CommunityProject  @relation(fields: [projectId], references: [id])
-  amount      Float
-  message     String?
-  status      SponsorshipStatus @default(PENDING)
-  sponsoredAt DateTime          @default(now())
-  approvedAt  DateTime?
-}
-
 enum SponsorshipStatus {
   PENDING
   APPROVED
   COMPLETED
   CANCELLED
-}
-
-// Communication Models
-model ForumPost {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  category  String
-  tags      String[]
-  views     Int      @default(0)
-  isPinned  Boolean  @default(false)
-  isLocked  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  author   User           @relation(fields: [authorId], references: [id])
-  authorId String
-  comments ForumComment[]
-  likes    ForumLike[]
-}
-
-model ForumComment {
-  id        String    @id @default(cuid())
-  content   String
-  postId    String
-  post      ForumPost @relation(fields: [postId], references: [id])
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id])
-  parentId  String? // For replies
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
-
-model ForumLike {
-  id        String    @id @default(cuid())
-  postId    String
-  post      ForumPost @relation(fields: [postId], references: [id])
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  createdAt DateTime  @default(now())
-
-  @@unique([postId, userId])
-}
-
-model Announcement {
-  id          String    @id @default(cuid())
-  title       String
-  content     String
-  type        String // general, event, volunteer, business
-  priority    String // low, medium, high
-  publishedAt DateTime  @default(now())
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-
-  // Relations
-  author   User   @relation(fields: [authorId], references: [id])
-  authorId String
-}
-
-// Recognition Models
-model Achievement {
-  id               String            @id @default(cuid())
-  name             String
-  description      String
-  badge            String? // badge image URL
-  points           Int               @default(10)
-  type             String // volunteer, learner, business, community
-  criteria         Json // Achievement criteria
-  createdAt        DateTime          @default(now())
-  userAchievements UserAchievement[]
-}
-
-model UserAchievement {
-  id            String      @id @default(cuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id])
-  achievementId String
-  achievement   Achievement @relation(fields: [achievementId], references: [id])
-  awardedAt     DateTime    @default(now())
-  volunteer     Volunteer?  @relation(fields: [volunteerId], references: [id])
-  volunteerId   String?
-
-  @@unique([userId, achievementId])
-}
-
-model Testimonial {
-  id         String    @id @default(cuid())
-  content    String
-  rating     Int?      @default(5)
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
-  businessId String?
-  business   Business? @relation(fields: [businessId], references: [id])
-  isApproved Boolean   @default(false)
-  createdAt  DateTime  @default(now())
-}
-
-// Impact Dashboard Models
-model ImpactMetric {
-  id          String   @id @default(cuid())
-  name        String
-  value       Int
-  category    String // volunteer, training, event, business
-  date        DateTime @default(now())
-  description String?
-}
-
-// Audit Log
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String
-  entity    String
-  entityId  String?
-  details   Json?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-}
-
-model Learner {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-}
-
-model CourseResource {
-  id        String   @id @default(cuid())
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id])
-  title     String
-  type      String
-  url       String
-  createdAt DateTime @default(now())
-}
-
-model EventFeedback {
-  id        String   @id @default(cuid())
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id])
-  userId    String
-  rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
 }

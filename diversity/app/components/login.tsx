@@ -22,6 +22,7 @@ import { api } from '@/lib/api'
 const loginSchema = z.object({
     email: z.string().email('Please enter a valid email address'),
     password: z.string().min(1, 'Password is required'),
+    rememberMe: z.boolean(),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -41,24 +42,39 @@ export default function LoginForm() {
         defaultValues: {
             email: '',
             password: '',
+            rememberMe: false,
         },
     })
 
     const onSubmit = async (data: LoginFormData) => {
         setIsLoading(true)
         try {
-            const response = await api.post('/login', data)
+            const response = await api.post('/login', {
+                email: data.email,
+                password: data.password,
+                rememberMe: data.rememberMe
+            })
 
             // Store token
             localStorage.setItem('token', response.token)
             localStorage.setItem('user', JSON.stringify(response.user))
 
+            const roleRedirects: Record<string, string> = {
+                ADMIN: '/admin/dashboard',
+                VOLUNTEER: '/volunteer/dashboard',
+                BUSINESS: '/business/dashboard',
+                LEARNER: '/learner/dashboard',
+                COMMUNITY_MEMBER: '/community/dashboard',
+            }
+
+            const redirectPath = roleRedirects[response.user.role as keyof typeof roleRedirects] || '/'
+
             toast({
                 title: 'Login successful!',
-                description: 'Redirecting to your dashboard...',
+                description: `Redirecting to your ${response.user.role.toLowerCase().replace('_', ' ')} dashboard...`,
             })
 
-            router.push('/')
+            router.push(redirectPath)
         } catch (error: any) {
             console.error('Login error:', error)
             toast({
@@ -186,7 +202,7 @@ export default function LoginForm() {
                                     <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
                                         Password
                                     </label>
-                                    <Link href="#" className="text-sm font-medium text-purple-600 hover:text-purple-500">
+                                    <Link href="/forgot-password" className="text-sm font-medium text-purple-600 hover:text-purple-500">
                                         Forgot password?
                                     </Link>
                                 </div>
@@ -225,8 +241,8 @@ export default function LoginForm() {
                         <div className="flex items-center">
                             <input
                                 id="remember-me"
-                                name="remember-me"
                                 type="checkbox"
+                                {...register('rememberMe')}
                                 className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded-md transition-all cursor-pointer"
                             />
                             <label htmlFor="remember-me" className="ml-2.5 block text-sm text-gray-600 cursor-pointer select-none">

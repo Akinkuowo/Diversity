@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
     Heart,
@@ -77,6 +77,7 @@ import {
     Bar,
     Legend
 } from 'recharts'
+import { cn } from '@/lib/utils'
 
 const stats = [
     {
@@ -225,6 +226,21 @@ const skillDistribution = [
 
 export default function VolunteerDashboard() {
     const [selectedView, setSelectedView] = useState('upcoming')
+    const [userName, setUserName] = useState('Volunteer')
+
+    useEffect(() => {
+        const user = localStorage.getItem('user')
+        if (user) {
+            try {
+                const parsedUser = JSON.parse(user)
+                if (parsedUser.firstName) {
+                    setUserName(parsedUser.firstName)
+                }
+            } catch (e) {
+                console.error('Failed to parse user from localStorage', e)
+            }
+        }
+    }, [])
 
     return (
         <DashboardLayout role="VOLUNTEER">
@@ -254,7 +270,7 @@ export default function VolunteerDashboard() {
                     <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                             <div>
-                                <h3 className="text-xl font-semibold mb-2">Welcome back, Sarah! 👋</h3>
+                                <h3 className="text-xl font-semibold mb-2">Welcome back, {userName}! 👋</h3>
                                 <p className="text-white/90 mb-4">
                                     You're making a real difference in your community. Keep up the great work!
                                 </p>
@@ -479,10 +495,18 @@ export default function VolunteerDashboard() {
                                 <div className="space-y-3">
                                     {achievements.map((achievement) => {
                                         const Icon = achievement.icon
+                                        const achievementColors: Record<string, { bg: string, text: string }> = {
+                                            yellow: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
+                                            purple: { bg: 'bg-purple-100', text: 'text-purple-600' },
+                                            blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
+                                            green: { bg: 'bg-green-100', text: 'text-green-600' },
+                                        }
+                                        const colors = achievementColors[achievement.color] || achievementColors.blue
+
                                         return (
                                             <div key={achievement.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                                                <div className={`w-10 h-10 rounded-full bg-${achievement.color}-100 flex items-center justify-center`}>
-                                                    <Icon className={`w-5 h-5 text-${achievement.color}-600`} />
+                                                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", colors.bg)}>
+                                                    <Icon className={cn("w-5 h-5", colors.text)} />
                                                 </div>
                                                 <div className="flex-1">
                                                     <p className="text-sm font-medium">{achievement.name}</p>

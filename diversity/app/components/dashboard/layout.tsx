@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Menu,
@@ -26,8 +26,6 @@ import {
     Shield,
     CreditCard,
     HelpCircle,
-    Moon,
-    Sun,
     LayoutDashboard,
     TrendingUp,
     Clock,
@@ -77,8 +75,8 @@ import {
     SheetContent,
     SheetTrigger,
 } from '@/components/ui/sheet'
-import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
+import { api } from '@/lib/api'
 
 interface DashboardLayoutProps {
     children: React.ReactNode
@@ -103,23 +101,81 @@ const roleIcons = {
 
 export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     const pathname = usePathname()
-    const { theme, setTheme } = useTheme()
+    const router = useRouter()
     const { toast } = useToast()
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [isScrolled, setIsScrolled] = useState(false)
-    const [notifications, setNotifications] = useState([
-        { id: 1, title: 'New course available', time: '5 min ago', read: false },
-        { id: 2, title: 'Volunteer opportunity', time: '1 hour ago', read: false },
-        { id: 3, title: 'Event reminder', time: '2 hours ago', read: true },
-    ])
+    const [user, setUser] = useState<any>(null)
+    const [notifications, setNotifications] = useState<any[]>([])
 
     useEffect(() => {
+        // Initialize user from localStorage
+        const savedUser = localStorage.getItem('user')
+        if (savedUser) {
+            try {
+                setUser(JSON.parse(savedUser))
+            } catch (e) {
+                console.error('Failed to parse user from localStorage', e)
+            }
+        }
+
         const handleScroll = () => {
             setIsScrolled(window.scrollY > 10)
         }
         window.addEventListener('scroll', handleScroll)
+
+        // Fetch User Data from backend to ensure it's up to date
+        const fetchUser = async () => {
+            console.log('DashboardLayout: Fetching user data from /me...');
+            try {
+                const userData = await api.get('/me')
+                console.log('DashboardLayout: User data received:', userData);
+                setUser(userData)
+                // Update localStorage with fresh data
+                localStorage.setItem('user', JSON.stringify(userData))
+            } catch (error) {
+                console.error('DashboardLayout: Failed to fetch user:', error)
+                // If unauthorized, redirect to login
+                if ((error as any).response?.status === 401) {
+                    console.log('DashboardLayout: Unauthorized, redirecting to login');
+                    router.push('/login')
+                }
+            }
+        }
+        fetchUser()
+
+        // Fetch Notifications
+        const fetchNotifications = async () => {
+            try {
+                const data = await api.get('/notifications')
+                setNotifications(data)
+            } catch (error) {
+                console.error('DashboardLayout: Failed to fetch notifications:', error)
+            }
+        }
+        fetchNotifications()
+
         return () => window.removeEventListener('scroll', handleScroll)
-    }, [])
+    }, [router])
+
+    const markAsRead = async (id: string) => {
+        try {
+            await api.patch(`/notifications/${id}/read`)
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error)
+        }
+    }
+
+    const handleLogout = () => {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        toast({
+            title: 'Logged out successfully',
+            description: 'You have been signed out of your account.',
+        })
+        router.push('/')
+    }
 
     const navigation = {
         ADMIN: [
@@ -182,7 +238,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     const RoleIcon = roleIcons[role]
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
             {/* Mobile Sidebar */}
             <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
                 <SheetContent side="left" className="w-72 p-0">
@@ -195,14 +251,14 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             </Sheet>
 
             {/* Desktop Sidebar */}
-            <aside className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden lg:block">
+            <aside className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-800 hidden lg:block">
                 <DesktopSidebar navigation={navigation[role]} role={role} />
             </aside>
 
             {/* Main Content */}
             <div className="lg:pl-72">
                 {/* Header */}
-                <header className={`sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-all ${isScrolled ? 'shadow-md' : ''
+                <header className={`sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 transition-all ${isScrolled ? 'shadow-md' : ''
                     }`}>
                     <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center gap-4">
@@ -220,25 +276,12 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                 <Search className="absolute left-3 w-4 h-4 text-gray-400" />
                                 <Input
                                     placeholder="Search..."
-                                    className="w-80 pl-10 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                                    className="w-80 pl-10 bg-gray-100/50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-800"
                                 />
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3">
-                            {/* Theme Toggle */}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                            >
-                                {theme === 'dark' ? (
-                                    <Sun className="w-5 h-5" />
-                                ) : (
-                                    <Moon className="w-5 h-5" />
-                                )}
-                            </Button>
-
                             {/* Notifications */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -252,19 +295,36 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                 <DropdownMenuContent align="end" className="w-80">
                                     <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    {notifications.map((notification) => (
-                                        <DropdownMenuItem key={notification.id} className="cursor-pointer">
-                                            <div className="flex flex-col gap-1">
-                                                <p className="text-sm font-medium">{notification.title}</p>
-                                                <p className="text-xs text-gray-500">{notification.time}</p>
-                                            </div>
-                                            {!notification.read && (
-                                                <Badge className="ml-auto" variant="default">New</Badge>
-                                            )}
-                                        </DropdownMenuItem>
-                                    ))}
+                                    {notifications.length === 0 ? (
+                                        <div className="p-4 text-center text-gray-500 text-sm">
+                                            No notifications
+                                        </div>
+                                    ) : (
+                                        notifications.slice(0, 5).map((notification) => (
+                                            <DropdownMenuItem
+                                                key={notification.id}
+                                                className="cursor-pointer"
+                                                onClick={() => markAsRead(notification.id)}
+                                            >
+                                                <div className="flex flex-col gap-1">
+                                                    <p className={`text-sm ${notification.read ? 'text-gray-600' : 'font-semibold'}`}>
+                                                        {notification.title}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {new Date(notification.createdAt).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                {!notification.read && (
+                                                    <Badge className="ml-auto" variant="default">New</Badge>
+                                                )}
+                                            </DropdownMenuItem>
+                                        ))
+                                    )}
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-center text-purple-600">
+                                    <DropdownMenuItem
+                                        className="text-center text-purple-600 cursor-pointer justify-center"
+                                        onClick={() => router.push('/notifications')}
+                                    >
                                         View all notifications
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -275,14 +335,14 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="flex items-center gap-2">
                                         <Avatar className="w-8 h-8">
-                                            <AvatarImage src="/avatars/user.jpg" />
-                                            <AvatarFallback className={`bg-gradient-to-r ${roleColors[role]} text-white`}>
-                                                JD
+                                            {user?.profile?.avatar && <AvatarImage src={user.profile.avatar} />}
+                                            <AvatarFallback className={`bg-gradient-to-r ${roleColors[role]} text-white uppercase`}>
+                                                {user?.firstName ? `${user.firstName[0]}${user.lastName?.[0] || ''}` : 'U'}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="hidden md:block text-left">
-                                            <p className="text-sm font-medium">John Doe</p>
-                                            <p className="text-xs text-gray-500">{role.toLowerCase()}</p>
+                                            <p className="text-sm font-medium">{user ? `${user.firstName} ${user.lastName || ''}` : 'Loading...'}</p>
+                                            <p className="text-xs text-gray-500">{role.toLowerCase().replace('_', ' ')}</p>
                                         </div>
                                         <ChevronDown className="w-4 h-4 hidden md:block" />
                                     </Button>
@@ -303,7 +363,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                         Billing
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-red-600">
+                                    <DropdownMenuItem className="text-red-600 cursor-pointer" onClick={handleLogout}>
                                         <LogOut className="w-4 h-4 mr-2" />
                                         Logout
                                     </DropdownMenuItem>
@@ -347,8 +407,8 @@ function DesktopSidebar({ navigation, role }: { navigation: any[]; role: string 
                                 key={item.name}
                                 href={item.href}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                                        ? `bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} text-white`
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    ? `bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} text-white`
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <Icon className="w-5 h-5" />
@@ -407,8 +467,8 @@ function MobileSidebar({ navigation, role, onClose }: { navigation: any[]; role:
                                 href={item.href}
                                 onClick={onClose}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                                        ? `bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} text-white`
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    ? `bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} text-white`
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <Icon className="w-5 h-5" />
