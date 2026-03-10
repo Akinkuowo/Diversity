@@ -13,9 +13,12 @@ const getHeaders = () => {
 
 export const api = {
   get: async (endpoint: string) => {
+    const headers = getHeaders();
+    delete headers['Content-Type'];
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers,
     });
 
     if (!response.ok) {
@@ -40,6 +43,29 @@ export const api = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const error = new Error(errorData.message || 'API request failed');
+      (error as any).response = {
+        status: response.status,
+        data: errorData,
+      };
+      throw error;
+    }
+
+    return await response.json();
+  },
+  upload: async (endpoint: string, formData: FormData) => {
+    const headers = getHeaders();
+    // Delete Content-Type so the browser sets it to multipart/form-data with the correct boundary
+    delete headers['Content-Type'];
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(errorData.message || 'File upload failed');
       (error as any).response = {
         status: response.status,
         data: errorData,
@@ -88,9 +114,12 @@ export const api = {
     return await response.json();
   },
   delete: async (endpoint: string) => {
+    const headers = getHeaders();
+    delete headers['Content-Type'];
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers,
     });
 
     if (!response.ok) {

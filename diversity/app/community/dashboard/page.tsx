@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Users,
@@ -57,6 +58,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -77,36 +87,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-const stats = [
-  {
-    title: 'Events Attended',
-    value: '24',
-    change: '+4 this month',
-    icon: Calendar,
-    color: 'bg-orange-500',
-  },
-  {
-    title: 'Forum Posts',
-    value: '156',
-    change: '+32',
-    icon: MessageCircle,
-    color: 'bg-blue-500',
-  },
-  {
-    title: 'Connections',
-    value: '89',
-    change: '+12',
-    icon: Users,
-    color: 'bg-green-500',
-  },
-  {
-    title: 'Impact Points',
-    value: '2,450',
-    change: '+450',
-    icon: Trophy,
-    color: 'bg-purple-500',
-  },
-]
+// We will dynamically build the stats array inside the component now
 
 const upcomingEvents = [
   {
@@ -247,9 +228,20 @@ export default function CommunityDashboard() {
   const [postComments, setPostComments] = useState<Record<string, any[]>>({})
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({})
 
-  // Edit State
+  // Edit & Delete State
   const [editingPost, setEditingPost] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
+  const [postToDelete, setPostToDelete] = useState<string | null>(null)
+
+  // Dynamic Community Stats State
+  const [communityStats, setCommunityStats] = useState({
+    eventsAttended: 0,
+    forumPosts: 0,
+    connections: 0,
+    impactPoints: 0,
+    contributions: 0,
+    communityRanking: 'New Member'
+  })
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -265,7 +257,17 @@ export default function CommunityDashboard() {
       }
     }
     fetchPosts()
+    fetchCommunityStats()
   }, [])
+
+  const fetchCommunityStats = async () => {
+    try {
+      const statsData = await api.get('/users/me/community-stats');
+      setCommunityStats(statsData);
+    } catch (error) {
+      console.error('Failed to fetch community stats:', error);
+    }
+  }
 
   const fetchPosts = async () => {
     setIsLoadingPosts(true)
@@ -377,22 +379,30 @@ export default function CommunityDashboard() {
     } else {
       try {
         await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`)
-        alert('Link copied to clipboard!')
+        toast.success('Link copied to clipboard!')
       } catch (err) {
         console.error('Failed to copy:', err)
+        toast.error('Failed to copy link')
       }
     }
   }
 
-  const handleDelete = async (postId: string) => {
-    if (!confirm('Are you sure you want to delete this post?')) return;
+  const handleDelete = (postId: string) => {
+    setPostToDelete(postId);
+  }
+
+  const confirmDelete = async () => {
+    if (!postToDelete) return;
 
     try {
-      await api.delete(`/posts/${postId}`);
-      setPosts(prev => prev.filter(p => p.id !== postId));
+      await api.delete(`/posts/${postToDelete}`);
+      setPosts(prev => prev.filter(p => p.id !== postToDelete));
+      toast.success('Post deleted successfully');
     } catch (error) {
       console.error('Failed to delete post:', error);
-      alert('Failed to delete post. Please try again.');
+      toast.error('Failed to delete post. Please try again.');
+    } finally {
+      setPostToDelete(null);
     }
   }
 
@@ -410,11 +420,44 @@ export default function CommunityDashboard() {
           : p
       ));
       setEditingPost(null);
+      toast.success('Post updated successfully');
     } catch (error) {
       console.error('Failed to update post:', error);
-      alert('Failed to update post. Please try again.');
+      toast.error('Failed to update post. Please try again.');
     }
   }
+
+  // Build the dynamic stats array to render in the UI
+  const displayStats = [
+    {
+      title: 'Events Attended',
+      value: communityStats.eventsAttended.toString(),
+      change: 'Lifetime',
+      icon: Calendar,
+      color: 'bg-orange-500',
+    },
+    {
+      title: 'Forum Posts',
+      value: communityStats.forumPosts.toString(),
+      change: 'Lifetime',
+      icon: MessageCircle,
+      color: 'bg-blue-500',
+    },
+    {
+      title: 'Connections',
+      value: communityStats.connections.toString(),
+      change: 'Network',
+      icon: Users,
+      color: 'bg-green-500',
+    },
+    {
+      title: 'Impact Points',
+      value: communityStats.impactPoints.toLocaleString(),
+      change: 'Total Score',
+      icon: Trophy,
+      color: 'bg-purple-500',
+    },
+  ];
 
   return (
     <DashboardLayout role="COMMUNITY_MEMBER">
@@ -448,24 +491,21 @@ export default function CommunityDashboard() {
                 <div className="flex gap-4">
                   <div className="bg-white/20 rounded-lg px-4 py-2">
                     <p className="text-sm opacity-90">Community Rank</p>
-                    <p className="text-2xl font-bold">#42</p>
+                    <p className="text-2xl font-bold">{communityStats.communityRanking}</p>
                   </div>
                   <div className="bg-white/20 rounded-lg px-4 py-2">
                     <p className="text-sm opacity-90">Contributions</p>
-                    <p className="text-2xl font-bold">156</p>
+                    <p className="text-2xl font-bold">{communityStats.contributions}</p>
                   </div>
                 </div>
               </div>
-              <Button variant="secondary" className="bg-white text-orange-600 hover:bg-gray-100">
-                View Profile
-              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, index) => {
+          {displayStats.map((stat, index) => {
             const Icon = stat.icon
             return (
               <motion.div
@@ -860,6 +900,34 @@ export default function CommunityDashboard() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!postToDelete} onOpenChange={(open) => !open && setPostToDelete(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Delete Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button
+              variant="ghost"
+              onClick={() => setPostToDelete(null)}
+              className="rounded-full"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              className="rounded-full bg-red-500 hover:bg-red-600"
+            >
+              Delete Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout >
   )
 }

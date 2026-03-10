@@ -350,7 +350,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                 <DropdownMenuContent align="end" className="w-56">
                                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/profile')}>
                                         <UserCircle className="w-4 h-4 mr-2" />
                                         Profile
                                     </DropdownMenuItem>

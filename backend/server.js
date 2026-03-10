@@ -443,6 +443,159 @@ fastify.get('/posts', async (request, reply) => {
   }
 });
 
+// GET User Profile
+fastify.get('/users/me/profile', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return reply.code(401).send({ message: 'Invalid token' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        profile: true
+      }
+    });
+
+    if (!user) {
+      return reply.code(404).send({ message: 'User not found' });
+    }
+
+    return user;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch profile' });
+  }
+});
+
+// PUT Update User Profile
+fastify.put('/users/me/profile', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return reply.code(401).send({ message: 'Invalid token' });
+  }
+
+  const { bio, avatar, phone, address, city, country, skills, interests, languages } = request.body;
+  console.log('PUT /users/me/profile payload:', request.body);
+
+  try {
+    const updatedProfile = await prisma.userProfile.upsert({
+      where: { userId: decoded.userId },
+      update: {
+        bio,
+        avatar,
+        phone,
+        address,
+        city,
+        country,
+        skills: skills || undefined,
+        interests: interests || undefined,
+        languages: languages || undefined
+      },
+      create: {
+        userId: decoded.userId,
+        bio,
+        avatar,
+        phone,
+        address,
+        city,
+        country,
+        skills: skills || [],
+        interests: interests || [],
+        languages: languages || []
+      }
+    });
+
+    return updatedProfile;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update profile' });
+  }
+});
+
+// GET User Community Stats
+fastify.get('/users/me/community-stats', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return reply.code(401).send({ message: 'Invalid token' });
+  }
+
+  try {
+    const userId = decoded.userId;
+
+    const [
+      eventsCount,
+      forumPostsCount,
+      postsCount,
+      postCommentsCount,
+      forumCommentsCount,
+      userProfile
+    ] = await Promise.all([
+      prisma.eventRegistration.count({ where: { userId } }),
+      prisma.forumPost.count({ where: { authorId: userId } }),
+      prisma.post.count({ where: { userId } }),
+      prisma.postComment.count({ where: { userId } }),
+      prisma.forumComment.count({ where: { authorId: userId } }),
+      prisma.userProfile.findUnique({
+        where: { userId },
+        select: { connections: true, impactPoints: true }
+      })
+    ]);
+
+    const connections = userProfile?.connections || 0;
+    const impactPoints = userProfile?.impactPoints || 0;
+    const contributions = postsCount + postCommentsCount + forumPostsCount + forumCommentsCount;
+
+    // Dynamic Ranking Logic Based on Impact Points
+    let ranking = "Top 50%";
+    if (impactPoints > 1000) ranking = "Top 5%";
+    else if (impactPoints > 500) ranking = "Top 10%";
+    else if (impactPoints > 100) ranking = "Top 25%";
+
+    return {
+      eventsAttended: eventsCount,
+      forumPosts: forumPostsCount,
+      connections: connections,
+      impactPoints: impactPoints,
+      contributions: contributions,
+      communityRanking: ranking
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch community stats' });
+  }
+});
+
 // POST Create Post
 fastify.post('/posts', async (request, reply) => {
   const { content, images, location } = request.body;
