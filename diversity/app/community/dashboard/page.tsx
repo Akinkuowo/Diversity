@@ -49,6 +49,11 @@ import {
   MessageSquare,
   ThumbsUp,
   Send,
+  Clock,
+  Eye,
+  Plus,
+  ChevronRight,
+  ArrowRight,
 } from 'lucide-react'
 import { DashboardLayout } from '../../components/dashboard/layout'
 import { CreatePostDialog } from '../../components/dashboard/community/create-post-dialog'
@@ -56,7 +61,7 @@ import { api } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -89,76 +94,13 @@ import {
 
 // We will dynamically build the stats array inside the component now
 
-const upcomingEvents = [
-  {
-    id: 1,
-    title: 'Community Meet & Greet',
-    date: '2024-01-20',
-    time: '18:00',
-    location: 'Community Center',
-    attendees: 45,
-    image: '/events/meetup.jpg',
-    category: 'Social',
-  },
-  {
-    id: 2,
-    title: 'Cultural Food Festival',
-    date: '2024-01-22',
-    time: '12:00',
-    location: 'City Park',
-    attendees: 120,
-    image: '/events/food.jpg',
-    category: 'Cultural',
-  },
-  {
-    id: 3,
-    title: 'Diversity Workshop',
-    date: '2024-01-25',
-    time: '14:00',
-    location: 'Virtual',
-    attendees: 89,
-    image: '/events/workshop.jpg',
-    category: 'Education',
-  },
-]
-
-const forumTopics = [
-  {
-    id: 1,
-    title: 'Building Inclusive Communities',
-    author: 'Sarah Chen',
-    replies: 45,
-    views: 234,
-    lastActive: '5 min ago',
-    category: 'Discussion',
-  },
-  {
-    id: 2,
-    title: 'Cultural Celebration Ideas',
-    author: 'Maria Garcia',
-    replies: 32,
-    views: 189,
-    lastActive: '1 hour ago',
-    category: 'Ideas',
-  },
-  {
-    id: 3,
-    title: 'Volunteer Opportunities',
-    author: 'John Smith',
-    replies: 28,
-    views: 156,
-    lastActive: '3 hours ago',
-    category: 'Opportunities',
-  },
-  {
-    id: 4,
-    title: 'Diversity in Workplace',
-    author: 'David Kim',
-    replies: 56,
-    views: 312,
-    lastActive: '5 hours ago',
-    category: 'Discussion',
-  },
+// Forum topics are now fetched from the backend
+const forumCategories = [
+  { id: 'all', name: 'All Topics' },
+  { id: 'inclusion', name: 'Inclusion & Belonging' },
+  { id: 'mentorship', name: 'Mentorship' },
+  { id: 'career', name: 'Career Growth' },
+  { id: 'news', name: 'Community News' },
 ]
 
 const nearbyBusinesses = [
@@ -221,8 +163,14 @@ const communityHighlights = [
 export default function CommunityDashboard() {
   const [userName, setUserName] = useState('Community Member')
   const [user, setUser] = useState<any>(null)
+  // Dashboard State
   const [posts, setPosts] = useState<any[]>([])
   const [isLoadingPosts, setIsLoadingPosts] = useState(true)
+  const [events, setEvents] = useState<any[]>([])
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true)
+  const [forumPosts, setForumPosts] = useState<any[]>([])
+  const [isLoadingForum, setIsLoadingForum] = useState(true)
+  const [selectedForumCategory, setSelectedForumCategory] = useState('all')
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
   const [postComments, setPostComments] = useState<Record<string, any[]>>({})
@@ -257,8 +205,34 @@ export default function CommunityDashboard() {
       }
     }
     fetchPosts()
+    fetchEvents()
+    fetchForumPosts()
     fetchCommunityStats()
   }, [])
+
+  const fetchEvents = async () => {
+    setIsLoadingEvents(true)
+    try {
+      const data = await api.get('/events')
+      setEvents(data)
+    } catch (err) {
+      console.error('Failed to fetch events:', err)
+    } finally {
+      setIsLoadingEvents(false)
+    }
+  }
+
+  const fetchForumPosts = async () => {
+    setIsLoadingForum(true)
+    try {
+      const data = await api.get(`/forum/posts?category=${selectedForumCategory}`)
+      setForumPosts(data)
+    } catch (err) {
+      console.error('Failed to fetch forum posts:', err)
+    } finally {
+      setIsLoadingForum(false)
+    }
+  }
 
   const fetchCommunityStats = async () => {
     try {
@@ -777,85 +751,195 @@ export default function CommunityDashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="events">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Upcoming Events</CardTitle>
-                    <CardDescription>Events in your community</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm">View Calendar</Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {upcomingEvents.map((event) => (
-                    <div key={event.id} className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div className="w-16 h-16 bg-primary-400 rounded-lg flex items-center justify-center text-white font-bold">
-                        {new Date(event.date).getDate()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-semibold">{event.title}</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{event.category}</p>
+          <TabsContent value="events" className="space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Events in Your Community</h3>
+                <p className="text-sm text-gray-500">Discover and join upcoming gatherings.</p>
+              </div>
+              <Link href="/events">
+                <Button variant="outline" className="rounded-xl border-primary-200 text-primary-600 hover:bg-primary-50">
+                  Explore All Events
+                </Button>
+              </Link>
+            </div>
+
+            {isLoadingEvents ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-[300px] rounded-3xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+                ))}
+              </div>
+            ) : events.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.slice(0, 3).map((event, i) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <Link href={`/events/${event.id}`}>
+                      <Card className="group overflow-hidden rounded-3xl border-none shadow-sm hover:shadow-lg transition-all duration-300 h-full flex flex-col bg-white dark:bg-slate-900 border border-gray-100 dark:border-gray-800 cursor-pointer">
+                        <div className="relative h-40 w-full overflow-hidden">
+                          <img
+                            src={event.image || 'https://images.unsplash.com/photo-1540575861501-7ad05823c23d?auto=format&fit=crop&q=80&w=1000'}
+                            alt={event.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute top-3 left-3">
+                            <Badge className="bg-white/90 backdrop-blur-sm text-primary-600 border-none text-[10px] font-bold">
+                              {event.type}
+                            </Badge>
                           </div>
-                          <Badge>{event.attendees} attending</Badge>
                         </div>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                          <span className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(event.date).toLocaleDateString()} at {event.time}
-                          </span>
-                          <span className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {event.location}
-                          </span>
-                        </div>
-                        <Button size="sm" className="mt-3 bg-primary-500 text-white hover:bg-primary-600">
-                          RSVP
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+
+                        <CardHeader className="p-4 pb-2">
+                          <div className="flex items-center gap-1.5 text-primary-600 font-semibold mb-1 text-[10px] uppercase tracking-wider">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(event.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </div>
+                          <CardTitle className="text-base group-hover:text-primary-600 transition-colors line-clamp-1">{event.title}</CardTitle>
+                        </CardHeader>
+
+                        <CardContent className="p-4 pt-0 space-y-3 flex-1">
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              <span className="line-clamp-1">{event.location || 'Remote'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {event._count?.registrations || 0}
+                            </div>
+                          </div>
+                        </CardContent>
+
+                        <CardFooter className="p-4 pt-0 flex items-center justify-between border-t border-gray-50 dark:border-slate-800 mt-auto bg-gray-50/50 dark:bg-white/5">
+                          <div className="text-sm font-bold text-gray-900 dark:text-white">
+                            {event.price === 0 ? 'Free' : `£${event.price}`}
+                          </div>
+                          <Button variant="ghost" size="sm" className="text-primary-600 p-0 h-auto font-bold text-xs">
+                            View Details
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-gray-50 dark:bg-slate-900 border border-dashed border-gray-200 rounded-3xl">
+                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h4 className="font-bold">No upcoming events</h4>
+                <p className="text-sm text-gray-500 mt-1">Check back later for new community gatherings.</p>
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="forum">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Community Forum</CardTitle>
-                    <CardDescription>Discussions and topics</CardDescription>
-                  </div>
-                  <Button size="sm" className="bg-primary-500 text-white hover:bg-primary-600">
-                    New Topic
+          <TabsContent value="forum" className="space-y-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
+              <div className="flex flex-wrap gap-2">
+                {forumCategories.map((cat) => (
+                  <Button
+                    key={cat.id}
+                    variant={selectedForumCategory === cat.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setSelectedForumCategory(cat.id);
+                      // fetchForumPosts will be triggered by re-render or explicit call
+                      setTimeout(fetchForumPosts, 0);
+                    }}
+                    className={`rounded-xl px-4 h-9 font-bold transition-all ${selectedForumCategory === cat.id ? 'bg-primary-600 text-white' : 'text-gray-500'}`}
+                  >
+                    {cat.name}
                   </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {forumTopics.map((topic) => (
-                    <div key={topic.id} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium">{topic.title}</h4>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                          <span>By {topic.author}</span>
-                          <span>💬 {topic.replies} replies</span>
-                          <span>👁️ {topic.views} views</span>
-                          <Badge variant="secondary">{topic.category}</Badge>
+                ))}
+              </div>
+              <Link href="/forums?create=true">
+                <Button className="rounded-2xl h-11 px-6 bg-[#0d9488] hover:bg-[#0c4f4a] text-white font-bold shadow-lg transition-transform hover:scale-105">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Start Discussion
+                </Button>
+              </Link>
+            </div>
+
+            {isLoadingForum ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-32 rounded-3xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+                ))}
+              </div>
+            ) : forumPosts.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6">
+                {forumPosts.slice(0, 5).map((post, i) => (
+                  <Link key={post.id} href={`/forums/${post.id}`}>
+                    <Card className="group relative overflow-hidden rounded-[1.5rem] border-none shadow-sm hover:shadow-xl transition-all duration-500 cursor-pointer bg-white dark:bg-slate-900 border border-gray-100 dark:border-gray-800">
+                      <CardContent className="p-6">
+                        <div className="flex gap-4">
+                          <div className="shrink-0">
+                            <Avatar className="w-12 h-12 rounded-xl ring-2 ring-primary-500/20 group-hover:rotate-6 transition-transform">
+                              <AvatarImage src={post.author?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.firstName || 'User'}`} />
+                              <AvatarFallback>{post.author?.firstName?.[0] || 'U'}</AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-primary-50 dark:bg-primary-950/30 text-primary-600 border-none font-bold text-[10px] uppercase tracking-wider">
+                                {post.category}
+                              </Badge>
+                              <span className="text-gray-400 text-xs flex items-center gap-1 font-medium">
+                                <Clock className="w-3 h-3" />
+                                {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-black text-gray-900 dark:text-white group-hover:text-primary-600 transition-colors leading-tight line-clamp-1">
+                              {post.title}
+                            </h4>
+                            <div className="flex items-center gap-4 text-gray-500">
+                              <div className="flex items-center gap-1 text-xs font-bold">
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                {post._count?.comments || 0}
+                              </div>
+                              <div className="flex items-center gap-1 text-xs font-bold">
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                                {post._count?.likes || 0}
+                              </div>
+                              <div className="flex items-center gap-1 text-xs font-bold">
+                                <Eye className="w-3.5 h-3.5" />
+                                {post.views || 0}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ChevronRight className="w-5 h-5 text-primary-400" />
+                          </div>
                         </div>
-                      </div>
-                      <span className="text-sm text-gray-500">{topic.lastActive}</span>
-                    </div>
-                  ))}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+                <div className="text-center pt-2">
+                  <Link href="/forums">
+                    <Button variant="ghost" className="text-primary-600 font-bold hover:bg-primary-50">
+                      View all discussions
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-gray-800">
+                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-200" />
+                <h4 className="font-bold text-gray-900 dark:text-white">No discussions yet</h4>
+                <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">Be the first to start a conversation in the community.</p>
+                <Link href="/forums" className="inline-block mt-4">
+                  <Button className="rounded-xl bg-primary-600 text-white font-bold h-10 px-6">
+                    Join the Forum
+                  </Button>
+                </Link>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="businesses">

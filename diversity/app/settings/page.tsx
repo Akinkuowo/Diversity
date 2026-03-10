@@ -6,16 +6,13 @@ import {
     User,
     Bell,
     Lock,
-    Eye,
     Globe,
     Shield,
     Smartphone,
     Mail,
     Key,
-    Moon,
-    Sun,
     Monitor,
-    CreditCard
+    LogOut
 } from 'lucide-react'
 import { DashboardLayout } from '../components/dashboard/layout'
 import { api } from '@/lib/api'
@@ -90,15 +87,105 @@ export default function SettingsPage() {
         setNotifPrefs(updated)
         try {
             await api.put('/users/me/notification-prefs', { [key]: value })
-            toast.success(
-                value
-                    ? 'Notifications enabled. You\'ll receive emails for this.'
-                    : 'Notifications disabled.'
-            )
+            toast.success(value ? "Notifications enabled. You'll receive emails for this." : 'Notifications disabled.')
         } catch (e) {
-            setNotifPrefs(notifPrefs) // rollback
+            setNotifPrefs(notifPrefs)
             toast.error('Failed to save notification preference.')
         }
+    }
+
+    // ——— Security state ———
+    const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    const [pwLoading, setPwLoading] = useState(false)
+    const [sessions, setSessions] = useState<any[]>([])
+    const [sessionsLoading, setSessionsLoading] = useState(false)
+    const [twoFAEnabled, setTwoFAEnabled] = useState(false)
+    const [twoFASetup, setTwoFASetup] = useState<{ secret: string; qrCode: string } | null>(null)
+    const [twoFAToken, setTwoFAToken] = useState('')
+    const [twoFADisableToken, setTwoFADisableToken] = useState('')
+    const [twoFALoading, setTwoFALoading] = useState(false)
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            setSessionsLoading(true)
+            try {
+                const data = await api.get('/users/me/sessions')
+                setSessions(data)
+            } catch { /* ignore */ } finally { setSessionsLoading(false) }
+        }
+        fetchSessions()
+    }, [])
+
+    useEffect(() => {
+        if (user) setTwoFAEnabled(user.twoFactorEnabled ?? false)
+    }, [user])
+
+    const handlePasswordChange = async () => {
+        if (pwForm.newPassword !== pwForm.confirmPassword) {
+            return toast.error('New passwords do not match.')
+        }
+        setPwLoading(true)
+        try {
+            const res = await api.post('/users/me/change-password', {
+                currentPassword: pwForm.currentPassword,
+                newPassword: pwForm.newPassword,
+            })
+            toast.success(res.message)
+            setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+            // Force re-login since sessions are invalidated
+            setTimeout(() => { localStorage.removeItem('token'); router.push('/login') }, 1500)
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to change password.')
+        } finally { setPwLoading(false) }
+    }
+
+    const handleRevokeSession = async (id: string) => {
+        try {
+            await api.delete(`/users/me/sessions/${id}`)
+            setSessions(s => s.filter(sess => sess.id !== id))
+            toast.success('Session revoked.')
+        } catch { toast.error('Failed to revoke session.') }
+    }
+
+    const handleRevokeAll = async () => {
+        try {
+            await api.delete('/users/me/sessions')
+            const data = await api.get('/users/me/sessions')
+            setSessions(data)
+            toast.success('All other sessions revoked.')
+        } catch { toast.error('Failed to revoke sessions.') }
+    }
+
+    const handle2FASetup = async () => {
+        setTwoFALoading(true)
+        try {
+            const res = await api.post('/users/me/2fa/setup', {})
+            setTwoFASetup(res)
+        } catch (e: any) { toast.error(e?.message || 'Failed to start 2FA setup.') }
+        finally { setTwoFALoading(false) }
+    }
+
+    const handle2FAVerify = async () => {
+        setTwoFALoading(true)
+        try {
+            const res = await api.post('/users/me/2fa/verify', { token: twoFAToken })
+            toast.success(res.message)
+            setTwoFAEnabled(true)
+            setTwoFASetup(null)
+            setTwoFAToken('')
+        } catch (e: any) { toast.error(e?.message || 'Invalid code.') }
+        finally { setTwoFALoading(false) }
+    }
+
+    const handle2FADisable = async () => {
+        setTwoFALoading(true)
+        try {
+            const res = await api.post('/users/me/2fa/disable', { token: twoFADisableToken })
+            toast.success(res.message)
+            setTwoFAEnabled(false)
+            setTwoFADisableToken('')
+        } catch (e: any) { toast.error(e?.message || 'Invalid code.') }
+        finally { setTwoFALoading(false) }
     }
 
     if (isLoading && !user) {
@@ -134,10 +221,6 @@ export default function SettingsPage() {
                         <TabsTrigger value="security" className="flex items-center gap-2 py-2.5 px-4 rounded-lg data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 data-[state=active]:shadow-none transition-all">
                             <Shield className="w-4 h-4" />
                             Security
-                        </TabsTrigger>
-                        <TabsTrigger value="display" className="flex items-center gap-2 py-2.5 px-4 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:shadow-none transition-all">
-                            <Eye className="w-4 h-4" />
-                            Display
                         </TabsTrigger>
                     </TabsList>
 
@@ -241,21 +324,30 @@ export default function SettingsPage() {
                                             <p className="font-medium text-gray-900 dark:text-white">Community Updates</p>
                                             <p className="text-sm text-gray-500">News, announcements, and featured opportunities.</p>
                                         </div>
-                                        <Switch defaultChecked />
+                                        <Switch
+                                            checked={notifPrefs.communityUpdates}
+                                            onCheckedChange={(v) => handleNotifToggle('communityUpdates', v)}
+                                        />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <p className="font-medium text-gray-900 dark:text-white">Weekly Digest</p>
                                             <p className="text-sm text-gray-500">A weekly summary of your stats and impact.</p>
                                         </div>
-                                        <Switch defaultChecked />
+                                        <Switch
+                                            checked={notifPrefs.weeklyDigest}
+                                            onCheckedChange={(v) => handleNotifToggle('weeklyDigest', v)}
+                                        />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <p className="font-medium text-gray-900 dark:text-white">Mentions & Replies</p>
                                             <p className="text-sm text-gray-500">When someone comments on your post or tags you.</p>
                                         </div>
-                                        <Switch defaultChecked />
+                                        <Switch
+                                            checked={notifPrefs.mentionsReplies}
+                                            onCheckedChange={(v) => handleNotifToggle('mentionsReplies', v)}
+                                        />
                                     </div>
                                 </CardContent>
                             </Card>
@@ -274,14 +366,20 @@ export default function SettingsPage() {
                                             <p className="font-medium text-gray-900 dark:text-white">Direct Messages</p>
                                             <p className="text-sm text-gray-500">Get notified immediately when someone messages you.</p>
                                         </div>
-                                        <Switch defaultChecked />
+                                        <Switch
+                                            checked={notifPrefs.directMessages}
+                                            onCheckedChange={(v) => handleNotifToggle('directMessages', v)}
+                                        />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <p className="font-medium text-gray-900 dark:text-white">Event Reminders</p>
                                             <p className="text-sm text-gray-500">Alerts 24 hours before your registered events.</p>
                                         </div>
-                                        <Switch defaultChecked />
+                                        <Switch
+                                            checked={notifPrefs.eventReminders}
+                                            onCheckedChange={(v) => handleNotifToggle('eventReminders', v)}
+                                        />
                                     </div>
                                 </CardContent>
                             </Card>
@@ -300,128 +398,157 @@ export default function SettingsPage() {
                                     <CardDescription>Manage your password and secure your account.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
+                                    {/* Password Change Form */}
                                     <div className="grid gap-4 max-w-sm">
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Current Password</label>
-                                            <Input type="password" placeholder="••••••••" />
+                                            <Input
+                                                type="password"
+                                                placeholder="••••••••"
+                                                value={pwForm.currentPassword}
+                                                onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">New Password</label>
-                                            <Input type="password" placeholder="••••••••" />
+                                            <Input
+                                                type="password"
+                                                placeholder="Min. 8 characters"
+                                                value={pwForm.newPassword}
+                                                onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Confirm New Password</label>
-                                            <Input type="password" placeholder="••••••••" />
+                                            <Input
+                                                type="password"
+                                                placeholder="••••••••"
+                                                value={pwForm.confirmPassword}
+                                                onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                                            />
                                         </div>
-                                        <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Update Password</Button>
+                                        <Button
+                                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                            onClick={handlePasswordChange}
+                                            disabled={pwLoading}
+                                        >
+                                            {pwLoading ? 'Updating...' : 'Update Password'}
+                                        </Button>
                                     </div>
 
                                     <hr className="border-gray-100 dark:border-gray-800" />
 
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</p>
-                                            <p className="text-sm text-gray-500">Add an extra layer of security to your account.</p>
+                                    {/* 2FA Section */}
+                                    {!twoFAEnabled && !twoFASetup && (
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-0.5">
+                                                <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</p>
+                                                <p className="text-sm text-gray-500">Add an extra layer of security to your account.</p>
+                                            </div>
+                                            <Button variant="outline" onClick={handle2FASetup} disabled={twoFALoading}>
+                                                {twoFALoading ? 'Setting up...' : 'Enable 2FA'}
+                                            </Button>
                                         </div>
-                                        <Button variant="outline">Enable 2FA</Button>
-                                    </div>
+                                    )}
+
+                                    {!twoFAEnabled && twoFASetup && (
+                                        <div className="space-y-4">
+                                            <p className="font-medium text-gray-900 dark:text-white">Scan with your authenticator app</p>
+                                            <img src={twoFASetup.qrCode} alt="2FA QR Code" className="w-48 h-48 rounded-xl border" />
+                                            <p className="text-sm text-gray-500">Or enter this code manually:</p>
+                                            <code className="block text-sm bg-gray-100 dark:bg-slate-800 px-3 py-2 rounded-lg font-mono break-all">{twoFASetup.secret}</code>
+                                            <div className="flex gap-3 max-w-sm">
+                                                <Input
+                                                    placeholder="Enter 6-digit code"
+                                                    value={twoFAToken}
+                                                    onChange={e => setTwoFAToken(e.target.value)}
+                                                    maxLength={6}
+                                                />
+                                                <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handle2FAVerify} disabled={twoFALoading}>
+                                                    {twoFALoading ? 'Verifying...' : 'Verify & Enable'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {twoFAEnabled && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                                <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication is <span className="text-emerald-600">Enabled</span></p>
+                                            </div>
+                                            <p className="text-sm text-gray-500">To disable, enter your current authenticator code below.</p>
+                                            <div className="flex gap-3 max-w-sm">
+                                                <Input
+                                                    placeholder="Enter 6-digit code"
+                                                    value={twoFADisableToken}
+                                                    onChange={e => setTwoFADisableToken(e.target.value)}
+                                                    maxLength={6}
+                                                />
+                                                <Button variant="destructive" onClick={handle2FADisable} disabled={twoFALoading}>
+                                                    {twoFALoading ? 'Disabling...' : 'Disable 2FA'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
                             <Card className="border-none shadow-md">
                                 <CardHeader>
-                                    <CardTitle className="flex items-center text-lg">
-                                        <Monitor className="w-5 h-5 mr-2 text-emerald-600" />
-                                        Active Sessions
-                                    </CardTitle>
-                                    <CardDescription>Devices currently logged into your account.</CardDescription>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center text-lg">
+                                                <Monitor className="w-5 h-5 mr-2 text-emerald-600" />
+                                                Active Sessions
+                                            </CardTitle>
+                                            <CardDescription>Devices currently logged into your account.</CardDescription>
+                                        </div>
+                                        {sessions.length > 1 && (
+                                            <Button variant="outline" size="sm" className="text-red-500 border-red-200 hover:bg-red-50" onClick={handleRevokeAll}>
+                                                <LogOut className="w-4 h-4 mr-1" /> Revoke All Others
+                                            </Button>
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                                            <div className="flex items-center gap-4">
-                                                <Monitor className="w-8 h-8 text-gray-400" />
-                                                <div>
-                                                    <p className="font-medium text-gray-900 dark:text-white">Mac OS Safari</p>
-                                                    <p className="text-xs text-green-600 font-medium">Active now — San Francisco, CA</p>
-                                                </div>
+                                    <div className="space-y-3">
+                                        {sessionsLoading && (
+                                            <p className="text-sm text-gray-500 text-center py-4">Loading sessions...</p>
+                                        )}
+                                        {!sessionsLoading && sessions.length === 0 && (
+                                            <div className="text-center py-6 text-gray-500 text-sm">
+                                                <Monitor className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                                No active sessions found. Log in from a device to see it here.
                                             </div>
-                                        </div>
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                                            <div className="flex items-center gap-4">
-                                                <Smartphone className="w-8 h-8 text-gray-400" />
-                                                <div>
-                                                    <p className="font-medium text-gray-900 dark:text-white">iPhone 14 iOS</p>
-                                                    <p className="text-xs text-gray-500">Last active 2 hours ago — San Francisco, CA</p>
+                                        )}
+                                        {sessions.map((session, i) => (
+                                            <div key={session.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                                                <div className="flex items-center gap-4">
+                                                    <Monitor className="w-8 h-8 text-gray-400" />
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                                            {session.userAgent ? session.userAgent.slice(0, 60) : 'Unknown device'}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {session.ipAddress || 'IP unknown'} · Last active {new Date(session.lastActiveAt).toLocaleString()}
+                                                        </p>
+                                                        {i === 0 && <span className="text-xs font-semibold text-emerald-600">Current session</span>}
+                                                    </div>
                                                 </div>
+                                                {i !== 0 && (
+                                                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleRevokeSession(session.id)}>
+                                                        Revoke
+                                                    </Button>
+                                                )}
                                             </div>
-                                            <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50">Revoke</Button>
-                                        </div>
+                                        ))}
                                     </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
                     </TabsContent>
 
-                    {/* Display Settings */}
-                    <TabsContent value="display">
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                            <Card className="border-none shadow-md">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center text-lg">
-                                        <Eye className="w-5 h-5 mr-2 text-blue-500" />
-                                        Appearance & Theme
-                                    </CardTitle>
-                                    <CardDescription>Customize how Diversity Network looks on your device.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="border-2 border-primary-500 bg-white p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
-                                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                                                <Sun className="w-6 h-6 text-gray-900" />
-                                            </div>
-                                            <p className="font-medium">Light Mode</p>
-                                        </div>
-                                        <div className="border-2 border-transparent hover:border-gray-200 bg-slate-900 p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
-                                            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center">
-                                                <Moon className="w-6 h-6 text-white" />
-                                            </div>
-                                            <p className="font-medium text-white">Dark Mode</p>
-                                        </div>
-                                        <div className="border-2 border-transparent hover:border-gray-200 bg-primary-100 p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
-                                            <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
-                                                <Monitor className="w-6 h-6 text-gray-900 dark:text-white" />
-                                            </div>
-                                            <p className="font-medium text-gray-900 dark:text-white">System Auto</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-none shadow-md">
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Accessibility</CardTitle>
-                                    <CardDescription>Make the interface easier to use.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <p className="font-medium text-gray-900 dark:text-white">Reduce Motion</p>
-                                            <p className="text-sm text-gray-500">Disable UI animations and transitions.</p>
-                                        </div>
-                                        <Switch />
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <p className="font-medium text-gray-900 dark:text-white">High Contrast Text</p>
-                                            <p className="text-sm text-gray-500">Increase color contrast for better readability.</p>
-                                        </div>
-                                        <Switch />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    </TabsContent>
                 </Tabs>
             </div>
         </DashboardLayout>

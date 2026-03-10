@@ -136,8 +136,129 @@ fastify.post('/upload', async (request, reply) => {
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
+
+// Helper: authenticate from Authorization header
+const authenticate = (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    reply.code(401).send({ message: 'Unauthorized' });
+    return null;
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch {
+    reply.code(401).send({ message: 'Invalid token' });
+    return null;
+  }
+};
+
+// POST Change Password
+fastify.post('/users/me/change-password', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const { currentPassword, newPassword } = request.body;
+  if (!currentPassword || !newPassword) {
+    return reply.code(400).send({ message: 'Both currentPassword and newPassword are required.' });
+  }
+  if (newPassword.length < 8) {
+    return reply.code(400).send({ message: 'New password must be at least 8 characters.' });
+  }
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+  if (!user) return reply.code(404).send({ message: 'User not found.' });
+  const match = await bcrypt.compare(currentPassword, user.password);
+  if (!match) return reply.code(400).send({ message: 'Current password is incorrect.' });
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: decoded.userId }, data: { password: hashed } });
+  // Invalidate all existing sessions for security
+  await prisma.userSession.deleteMany({ where: { userId: decoded.userId } });
+  return { message: 'Password updated successfully. Please log in again.' };
+});
+
+// GET Active Sessions
+fastify.get('/users/me/sessions', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const sessions = await prisma.userSession.findMany({
+    where: { userId: decoded.userId },
+    orderBy: { lastActiveAt: 'desc' },
+  });
+  return sessions;
+});
+
+// DELETE Revoke a Session
+fastify.delete('/users/me/sessions/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const { id } = request.params;
+  const session = await prisma.userSession.findUnique({ where: { id } });
+  if (!session || session.userId !== decoded.userId) {
+    return reply.code(404).send({ message: 'Session not found.' });
+  }
+  await prisma.userSession.delete({ where: { id } });
+  return { message: 'Session revoked.' };
+});
+
+// DELETE Revoke all other sessions
+fastify.delete('/users/me/sessions', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const currentToken = request.headers.authorization.split(' ')[1];
+  await prisma.userSession.deleteMany({
+    where: { userId: decoded.userId, NOT: { token: currentToken } }
+  });
+  return { message: 'All other sessions revoked.' };
+});
+
+// POST Setup 2FA — generates a TOTP secret & QR code
+fastify.post('/users/me/2fa/setup', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { email: true, twoFactorEnabled: true } });
+  if (!user) return reply.code(404).send({ message: 'User not found.' });
+  if (user.twoFactorEnabled) return reply.code(400).send({ message: '2FA is already enabled.' });
+  const secret = speakeasy.generateSecret({ name: `Diversity Network (${user.email})`, length: 20 });
+  // Temporarily save secret (not yet enabled until verified)
+  await prisma.user.update({ where: { id: decoded.userId }, data: { twoFactorSecret: secret.base32 } });
+  const qrDataUrl = await QRCode.toDataURL(secret.otpauth_url);
+  return { secret: secret.base32, qrCode: qrDataUrl };
+});
+
+// POST Verify & Enable 2FA
+fastify.post('/users/me/2fa/verify', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const { token } = request.body;
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { twoFactorSecret: true } });
+  if (!user || !user.twoFactorSecret) return reply.code(400).send({ message: '2FA setup not initiated.' });
+  const valid = speakeasy.totp.verify({
+    secret: user.twoFactorSecret,
+    encoding: 'base32',
+    token,
+    window: 1,
+  });
+  if (!valid) return reply.code(400).send({ message: 'Invalid verification code. Please try again.' });
+  await prisma.user.update({ where: { id: decoded.userId }, data: { twoFactorEnabled: true } });
+  return { message: '2FA has been enabled successfully.' };
+});
+
+// POST Disable 2FA
+fastify.post('/users/me/2fa/disable', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  const { token } = request.body;
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { twoFactorSecret: true, twoFactorEnabled: true } });
+  if (!user || !user.twoFactorEnabled) return reply.code(400).send({ message: '2FA is not enabled.' });
+  const valid = speakeasy.totp.verify({ secret: user.twoFactorSecret, encoding: 'base32', token, window: 1 });
+  if (!valid) return reply.code(400).send({ message: 'Invalid code. Please try again.' });
+  await prisma.user.update({ where: { id: decoded.userId }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
+  return { message: '2FA has been disabled.' };
+});
 
 // Register Route
+
 fastify.post('/register', async (request, reply) => {
   const { email, password, firstName, lastName, role } = request.body;
 
@@ -265,12 +386,23 @@ fastify.post('/login', async (request, reply) => {
     const expiresIn = rememberMe ? '30d' : '1d';
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn });
 
+    // Record a session entry so it shows up in Active Sessions
+    await prisma.userSession.create({
+      data: {
+        userId: user.id,
+        token,
+        userAgent: request.headers['user-agent'] || null,
+        ipAddress: request.ip || request.headers['x-forwarded-for'] || null,
+      }
+    });
+
     return { token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role } };
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });
   }
 });
+
 
 // Me Route - Get current user profile
 fastify.get('/me', async (request, reply) => {
@@ -993,6 +1125,385 @@ fastify.post('/forgot-password', async (request, reply) => {
   }
 });
 
+// --- EVENTS ROUTES ---
+
+// Get all published events
+fastify.get('/events', async (request, reply) => {
+  try {
+    const { category, type } = request.query;
+    const where = {
+      status: 'PUBLISHED'
+    };
+
+    if (category && category !== 'All') {
+      where.category = category;
+    }
+
+    if (type && type !== 'All') {
+      where.type = type;
+    }
+
+    const events = await prisma.event.findMany({
+      where,
+      include: {
+        organizer: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: {
+              select: { avatar: true }
+            }
+          }
+        },
+        _count: {
+          select: { registrations: true }
+        }
+      },
+      orderBy: { startDate: 'asc' }
+    });
+
+    return events;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get single event
+fastify.get('/events/:id', async (request, reply) => {
+  const { id } = request.params;
+  try {
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        organizer: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: {
+              select: { avatar: true, bio: true }
+            }
+          }
+        },
+        tickets: true,
+        registrations: true,
+        _count: {
+          select: { registrations: true }
+        }
+      }
+    });
+
+    if (!event) {
+      return reply.code(404).send({ message: 'Event not found' });
+    }
+
+    return event;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Register for event
+fastify.post('/events/:id/register', async (request, reply) => {
+  const { id: eventId } = request.params;
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    // Check if already registered
+    const existing = await prisma.eventRegistration.findUnique({
+      where: {
+        eventId_userId: { eventId, userId }
+      }
+    });
+
+    if (existing) {
+      return reply.code(400).send({ message: 'You are already registered for this event.' });
+    }
+
+    // Create registration
+    const registration = await prisma.eventRegistration.create({
+      data: {
+        eventId,
+        userId,
+        qrCode: `EVT-${eventId.slice(0, 4)}-USR-${userId.slice(0, 4)}-${Date.now()}`
+      }
+    });
+
+    return { message: 'Registration successful!', registration };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get current user's events
+fastify.get('/users/me/events', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    const registrations = await prisma.eventRegistration.findMany({
+      where: { userId },
+      include: {
+        event: {
+          include: {
+            organizer: {
+              select: { firstName: true, lastName: true }
+            }
+          }
+        }
+      },
+      orderBy: { event: { startDate: 'asc' } }
+    });
+
+    return registrations.map(r => ({
+      ...r.event,
+      registrationId: r.id,
+      registeredAt: r.registeredAt,
+      checkedIn: r.checkedIn
+    }));
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// --- FORUM ROUTES ---
+
+// Get all forum categories
+fastify.get('/forum/categories', async (request, reply) => {
+  return [
+    { id: 'general', name: 'General Discussion', description: 'Anything and everything about diversity.' },
+    { id: 'career', name: 'Career & Mentorship', description: 'Grow your career with community support.' },
+    { id: 'inclusion', name: 'Inclusion & Belonging', description: 'Sharing best practices and personal stories.' },
+    { id: 'news', name: 'Community News', description: 'Latest updates from the Diversity Network.' }
+  ];
+});
+
+// Get all forum posts
+fastify.get('/forum/posts', async (request, reply) => {
+  try {
+    const { category, search } = request.query;
+    const where = {};
+
+    if (category && category !== 'all') {
+      where.category = category;
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { content: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const posts = await prisma.forumPost.findMany({
+      where,
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true } }
+          }
+        },
+        _count: {
+          select: { comments: true, likes: true }
+        }
+      },
+      orderBy: [
+        { isPinned: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    });
+
+    return posts;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get single forum post
+fastify.get('/forum/posts/:id', async (request, reply) => {
+  const { id } = request.params;
+  try {
+    const post = await prisma.forumPost.findUnique({
+      where: { id },
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true, bio: true } }
+          }
+        },
+        comments: {
+          include: {
+            author: {
+              select: {
+                firstName: true,
+                lastName: true,
+                profile: { select: { avatar: true } }
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        },
+        _count: {
+          select: { likes: true }
+        }
+      }
+    });
+
+    if (!post) {
+      return reply.code(404).send({ message: 'Post not found' });
+    }
+
+    // Increment views
+    await prisma.forumPost.update({
+      where: { id },
+      data: { views: { increment: 1 } }
+    });
+
+    return post;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Create forum post
+fastify.post('/forum/posts', async (request, reply) => {
+  const { title, content, category, tags } = request.body;
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const authorId = decoded.userId;
+
+    const post = await prisma.forumPost.create({
+      data: {
+        title,
+        content,
+        category,
+        tags: tags || [],
+        authorId
+      },
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true } }
+          }
+        },
+        _count: {
+          select: { comments: true, likes: true }
+        }
+      }
+    });
+
+    return post;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Add comment to forum post
+fastify.post('/forum/posts/:id/comments', async (request, reply) => {
+  const { id: postId } = request.params;
+  const { content, parentId } = request.body;
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const authorId = decoded.userId;
+
+    const comment = await prisma.forumComment.create({
+      data: {
+        content,
+        postId,
+        authorId,
+        parentId
+      },
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true } }
+          }
+        }
+      }
+    });
+
+    return comment;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Toggle like on forum post
+fastify.post('/forum/posts/:id/like', async (request, reply) => {
+  const { id: postId } = request.params;
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    const existingLike = await prisma.forumLike.findUnique({
+      where: {
+        postId_userId: { postId, userId }
+      }
+    });
+
+    if (existingLike) {
+      await prisma.forumLike.delete({
+        where: { id: existingLike.id }
+      });
+      return { liked: false };
+    } else {
+      await prisma.forumLike.create({
+        data: { postId, userId }
+      });
+      return { liked: true };
+    }
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
 // Reset Password Route
 fastify.post('/reset-password', async (request, reply) => {
   const { token, password } = request.body;
@@ -1023,6 +1534,104 @@ fastify.post('/reset-password', async (request, reply) => {
     });
 
     return { message: 'Password reset successful! You can now log in.' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// --- Resources API ---
+
+// Get all resources with filtering
+fastify.get('/resources', async (request, reply) => {
+  const { category, type, search, language } = request.query;
+  try {
+    const where = { isPublished: true };
+
+    if (category && category !== 'all') {
+      where.category = category;
+    }
+    if (type && type !== 'all') {
+      where.type = type;
+    }
+    if (language) {
+      where.language = language;
+    }
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { tags: { has: search } }
+      ];
+    }
+
+    const resources = await prisma.resource.findMany({
+      where,
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return resources;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get unique resource categories and types
+fastify.get('/resources/meta', async (request, reply) => {
+  try {
+    const resources = await prisma.resource.findMany({
+      where: { isPublished: true },
+      select: { category: true, type: true }
+    });
+
+    const categories = [...new Set(resources.map(r => r.category))];
+    const types = [...new Set(resources.map(r => r.type))];
+
+    return { categories, types };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get single resource
+fastify.get('/resources/:id', async (request, reply) => {
+  const { id } = request.params;
+  try {
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true, bio: true } }
+          }
+        }
+      }
+    });
+
+    if (!resource) {
+      return reply.code(404).send({ message: 'Resource not found' });
+    }
+
+    // Increment views
+    await prisma.resource.update({
+      where: { id },
+      data: { views: { increment: 1 } }
+    });
+
+    return resource;
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });

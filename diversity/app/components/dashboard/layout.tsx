@@ -183,10 +183,12 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Users', href: '/admin/users', icon: Users },
             { name: 'Businesses', href: '/admin/businesses', icon: Building2 },
             { name: 'Courses', href: '/admin/courses', icon: BookOpen },
-            { name: 'Events', href: '/admin/events', icon: Calendar },
+            { name: 'Events', href: '/events', icon: Calendar },
             { name: 'Volunteers', href: '/admin/volunteers', icon: Heart },
             { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
             { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
+            { name: 'Resources', href: '/resources', icon: BookOpen },
+            { name: 'Billing', href: '/billing', icon: CreditCard },
             { name: 'Settings', href: '/settings', icon: Settings },
         ],
         BUSINESS: [
@@ -198,6 +200,8 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Volunteering', href: '/business/volunteering', icon: Heart },
             { name: 'Sponsorships', href: '/business/sponsorships', icon: Gift },
             { name: 'Impact Report', href: '/business/impact', icon: Target },
+            { name: 'Resources', href: '/resources', icon: BookOpen },
+            { name: 'Billing', href: '/billing', icon: CreditCard },
             { name: 'Settings', href: '/settings', icon: Settings },
         ],
         VOLUNTEER: [
@@ -206,9 +210,11 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Opportunities', href: '/volunteer/opportunities', icon: Target },
             { name: 'Hours Log', href: '/volunteer/hours', icon: Clock },
             { name: 'Achievements', href: '/volunteer/achievements', icon: Trophy },
-            { name: 'Events', href: '/volunteer/events', icon: Calendar },
+            { name: 'Events', href: '/events', icon: Calendar },
             { name: 'Training', href: '/volunteer/training', icon: BookOpen },
             { name: 'Community', href: '/volunteer/community', icon: Users2 },
+            { name: 'Resources', href: '/resources', icon: BookOpen },
+            { name: 'Billing', href: '/billing', icon: CreditCard },
             { name: 'Settings', href: '/settings', icon: Settings },
         ],
         LEARNER: [
@@ -217,20 +223,24 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Learning Path', href: '/learner/path', icon: TrendingUp },
             { name: 'Certificates', href: '/learner/certificates', icon: Award },
             { name: 'Quizzes', href: '/learner/quizzes', icon: FileText },
-            { name: 'Resources', href: '/learner/resources', icon: FileSpreadsheet },
+            { name: 'Resources', href: '/resources', icon: FileSpreadsheet },
             { name: 'Progress', href: '/learner/progress', icon: Activity },
             { name: 'Community', href: '/learner/community', icon: Users2 },
+            { name: 'Resources', href: '/resources', icon: BookOpen },
+            { name: 'Billing', href: '/billing', icon: CreditCard },
             { name: 'Settings', href: '/settings', icon: Settings },
         ],
         COMMUNITY_MEMBER: [
             { name: 'Dashboard', href: '/community/dashboard', icon: LayoutDashboard },
-            { name: 'Events', href: '/community/events', icon: Calendar },
-            { name: 'Forums', href: '/community/forums', icon: MessageCircle },
-            { name: 'Resources', href: '/community/resources', icon: FileText },
+            { name: 'Events', href: '/events', icon: Calendar },
+            { name: 'Forums', href: '/forums', icon: MessageCircle },
+            { name: 'Resources', href: '/resources', icon: FileText },
             { name: 'Businesses', href: '/community/businesses', icon: Building2 },
             { name: 'Volunteer', href: '/community/volunteer', icon: Heart },
             { name: 'Announcements', href: '/community/announcements', icon: Bell },
             { name: 'Network', href: '/community/network', icon: Users2 },
+            { name: 'Resources', href: '/resources', icon: BookOpen },
+            { name: 'Billing', href: '/billing', icon: CreditCard },
             { name: 'Settings', href: '/settings', icon: Settings },
         ],
     }
@@ -358,7 +368,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                         <Settings className="w-4 h-4 mr-2" />
                                         Settings
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/billing')}>
                                         <CreditCard className="w-4 h-4 mr-2" />
                                         Billing
                                     </DropdownMenuItem>
