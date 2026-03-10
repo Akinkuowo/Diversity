@@ -182,14 +182,14 @@ export default function RegisterPage() {
     return (
         <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50">
             {/* Left Side: Hero Section (Fixed/Sticky on large screens) */}
-            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-indigo-900">
+            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-secondary-900">
                 <div className="absolute inset-0 z-0">
                     <img
                         src="/images/diversity-hero.png"
                         alt="Diversity and Inclusion"
                         className="w-full h-full object-cover opacity-60"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-indigo-950 via-indigo-900/40 to-transparent" />
+                    <div className="absolute inset-0 bg-primary-950" />
                 </div>
 
                 <div className="relative z-10 w-full flex flex-col justify-between p-12 text-white">
@@ -209,20 +209,20 @@ export default function RegisterPage() {
                             <h1 className="text-5xl font-bold leading-tight mb-6">
                                 Shape a more inclusive world.
                             </h1>
-                            <div className="h-1 w-20 bg-gradient-to-r from-purple-400 to-indigo-400 mb-8 rounded-full" />
+                            <div className="h-1 w-20 bg-primary-400 mb-8 rounded-full" />
                         </motion.div>
 
                         <motion.p
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className="text-lg text-indigo-100/80 leading-relaxed mb-10"
+                            className="text-lg text-secondary-100/80 leading-relaxed mb-10"
                         >
                             Join thousands of organizations and individuals building equitable spaces where everyone belongs.
                         </motion.p>
                     </div>
 
-                    <div className="flex items-center space-x-6 text-sm text-indigo-200/60 font-medium">
+                    <div className="flex items-center space-x-6 text-sm text-secondary-200/60 font-medium">
                         <p>© 2026 Diversity Network</p>
                         <div className="flex space-x-4">
                             <Link href="#" className="hover:text-white transition-colors">Facebook</Link>
@@ -232,8 +232,8 @@ export default function RegisterPage() {
                     </div>
                 </div>
 
-                <div className="absolute top-1/4 -right-20 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl" />
+                <div className="absolute top-1/4 -right-20 w-64 h-64 bg-secondary-500/20 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-secondary-500/20 rounded-full blur-3xl" />
             </div>
 
             {/* Right Side: Registration Form */}
@@ -241,7 +241,7 @@ export default function RegisterPage() {
                 {/* Mobile Logo */}
                 <div className="lg:hidden mb-12 text-center w-full">
                     <Link href="/" className="inline-flex items-center justify-center mb-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg">
                             <span className="text-white font-bold text-2xl">DN</span>
                         </div>
                     </Link>
@@ -255,7 +255,7 @@ export default function RegisterPage() {
                         </h2>
                         <p className="text-gray-600">
                             Already a member?{' '}
-                            <Link href="/login" className="font-semibold text-purple-600 hover:text-purple-500 transition-colors">
+                            <Link href="/login" className="font-semibold text-secondary-600 hover:text-secondary-500 transition-colors">
                                 Sign in instead
                             </Link>
                         </p>
@@ -267,17 +267,17 @@ export default function RegisterPage() {
                             {[1, 2, 3].map((step) => (
                                 <div key={step} className="flex flex-col items-center relative flex-1">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all z-10 shadow-sm ${currentStep >= step
-                                        ? 'bg-purple-600 text-white ring-4 ring-purple-100'
+                                        ? 'bg-secondary-600 text-white ring-4 ring-secondary-100'
                                         : 'bg-white text-gray-400 border border-gray-200'
                                         }`}>
                                         {step}
                                     </div>
-                                    <span className={`mt-2 text-xs font-bold uppercase tracking-wider ${currentStep >= step ? 'text-purple-600' : 'text-gray-400'
+                                    <span className={`mt-2 text-xs font-bold uppercase tracking-wider ${currentStep >= step ? 'text-secondary-600' : 'text-gray-400'
                                         }`}>
                                         {step === 1 ? 'Details' : step === 2 ? 'Role' : 'Consent'}
                                     </span>
                                     {step < 3 && (
-                                        <div className={`absolute top-5 left-1/2 w-full h-[2px] -z-0 ${currentStep > step ? 'bg-purple-600' : 'bg-gray-100'
+                                        <div className={`absolute top-5 left-1/2 w-full h-[2px] -z-0 ${currentStep > step ? 'bg-secondary-600' : 'bg-gray-100'
                                             }`} />
                                     )}
                                 </div>
@@ -311,10 +311,10 @@ export default function RegisterPage() {
                                         <div className="space-y-2">
                                             <label className="text-sm font-semibold text-gray-700">First Name</label>
                                             <div className="relative group">
-                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
+                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-secondary-600 transition-colors" />
                                                 <Input
                                                     {...register('firstName')}
-                                                    className="pl-11 h-12 bg-white rounded-xl border-gray-200 focus:ring-purple-500 transition-all font-medium"
+                                                    className="pl-11 h-12 bg-white rounded-xl border-gray-200 focus:ring-secondary-500 transition-all font-medium"
                                                     placeholder="First name"
                                                 />
                                             </div>
@@ -323,10 +323,10 @@ export default function RegisterPage() {
                                         <div className="space-y-2">
                                             <label className="text-sm font-semibold text-gray-700">Last Name</label>
                                             <div className="relative group">
-                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
+                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-secondary-600 transition-colors" />
                                                 <Input
                                                     {...register('lastName')}
-                                                    className="pl-11 h-12 bg-white rounded-xl border-gray-200 focus:ring-purple-500 transition-all font-medium"
+                                                    className="pl-11 h-12 bg-white rounded-xl border-gray-200 focus:ring-secondary-500 transition-all font-medium"
                                                     placeholder="Last name"
                                                 />
                                             </div>
@@ -337,11 +337,11 @@ export default function RegisterPage() {
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-gray-700">Email Address</label>
                                         <div className="relative group">
-                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-secondary-600 transition-colors" />
                                             <Input
                                                 type="email"
                                                 {...register('email')}
-                                                className="pl-11 h-12 bg-white rounded-xl border-gray-200 focus:ring-purple-500 transition-all font-medium"
+                                                className="pl-11 h-12 bg-white rounded-xl border-gray-200 focus:ring-secondary-500 transition-all font-medium"
                                                 placeholder="example@email.com"
                                             />
                                         </div>
@@ -351,11 +351,11 @@ export default function RegisterPage() {
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-gray-700">Password</label>
                                         <div className="relative group">
-                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-secondary-600 transition-colors" />
                                             <Input
                                                 type={showPassword ? 'text' : 'password'}
                                                 {...register('password')}
-                                                className="pl-11 pr-12 h-12 bg-white rounded-xl border-gray-200 focus:ring-purple-500 transition-all font-medium"
+                                                className="pl-11 pr-12 h-12 bg-white rounded-xl border-gray-200 focus:ring-secondary-500 transition-all font-medium"
                                                 placeholder="Create password"
                                                 onFocus={() => setPasswordFocused(true)}
                                                 onBlur={() => setPasswordFocused(false)}
@@ -403,11 +403,11 @@ export default function RegisterPage() {
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-gray-700">Confirm Password</label>
                                         <div className="relative group">
-                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-secondary-600 transition-colors" />
                                             <Input
                                                 type={showConfirmPassword ? 'text' : 'password'}
                                                 {...register('confirmPassword')}
-                                                className="pl-11 pr-12 h-12 bg-white rounded-xl border-gray-200 focus:ring-purple-500 transition-all font-medium"
+                                                className="pl-11 pr-12 h-12 bg-white rounded-xl border-gray-200 focus:ring-secondary-500 transition-all font-medium"
                                                 placeholder="Confirm password"
                                             />
                                             <button
@@ -424,7 +424,7 @@ export default function RegisterPage() {
                                     <Button
                                         type="button"
                                         onClick={nextStep}
-                                        className="w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-purple-200 hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] font-bold text-base mt-6"
+                                        className="w-full h-12 bg-primary-600 text-white rounded-xl shadow-lg shadow-secondary-200 hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] font-bold text-base mt-6"
                                     >
                                         Continue to Next Step
                                         <ArrowRight className="ml-2 w-5 h-5" />
@@ -449,19 +449,19 @@ export default function RegisterPage() {
                                                     key={role.value}
                                                     type="button"
                                                     onClick={() => setValue('role', role.value as any)}
-                                                    className={`p-5 rounded-2xl border-2 transition-all text-left flex flex-col h-full ring-offset-2 ring-purple-500 ${isSelected
-                                                        ? 'border-purple-600 bg-purple-50/50 ring-2'
+                                                    className={`p-5 rounded-2xl border-2 transition-all text-left flex flex-col h-full ring-offset-2 ring-secondary-500 ${isSelected
+                                                        ? 'border-secondary-600 bg-secondary-50/50 ring-2'
                                                         : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
                                                         }`}
                                                 >
-                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-sm ${isSelected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'
+                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-sm ${isSelected ? 'bg-secondary-600 text-white' : 'bg-slate-100 text-slate-500'
                                                         }`}>
                                                         <Icon className="w-6 h-6" />
                                                     </div>
-                                                    <h3 className={`font-bold text-base mb-1 ${isSelected ? 'text-purple-900' : 'text-slate-800'}`}>
+                                                    <h3 className={`font-bold text-base mb-1 ${isSelected ? 'text-secondary-900' : 'text-slate-800'}`}>
                                                         {role.label}
                                                     </h3>
-                                                    <p className={`text-xs font-medium leading-relaxed ${isSelected ? 'text-purple-600' : 'text-slate-500'}`}>
+                                                    <p className={`text-xs font-medium leading-relaxed ${isSelected ? 'text-secondary-600' : 'text-slate-500'}`}>
                                                         {role.description}
                                                     </p>
                                                 </button>
@@ -481,7 +481,7 @@ export default function RegisterPage() {
                                         <Button
                                             type="button"
                                             onClick={() => setCurrentStep(3)}
-                                            className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-lg ring-offset-2 ring-purple-600 transition-all active:scale-95 font-bold"
+                                            className="flex-1 h-12 bg-secondary-600 hover:bg-secondary-700 text-white rounded-xl shadow-lg ring-offset-2 ring-secondary-600 transition-all active:scale-95 font-bold"
                                         >
                                             Final Step
                                         </Button>
@@ -528,9 +528,9 @@ export default function RegisterPage() {
                                             />
                                             <label htmlFor="gdpr" className="ml-4 text-[13px] text-slate-600 font-medium leading-relaxed select-none cursor-pointer">
                                                 I confirm that I have read and agree to the {' '}
-                                                <Link href="/terms" className="text-purple-600 font-bold underline-offset-4 hover:underline">Terms of Service</Link>
+                                                <Link href="/terms" className="text-secondary-600 font-bold underline-offset-4 hover:underline">Terms of Service</Link>
                                                 {' '} and {' '}
-                                                <Link href="/privacy" className="text-purple-600 font-bold underline-offset-4 hover:underline">Privacy Policy</Link>.
+                                                <Link href="/privacy" className="text-secondary-600 font-bold underline-offset-4 hover:underline">Privacy Policy</Link>.
                                             </label>
                                         </div>
                                         {errors.gdprConsent && <p className="text-xs font-bold text-red-500 pl-1">{errors.gdprConsent.message}</p>}
@@ -560,7 +560,7 @@ export default function RegisterPage() {
                                         <Button
                                             type="submit"
                                             disabled={isLoading}
-                                            className="flex-[2] h-12 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-purple-200 font-bold"
+                                            className="flex-[2] h-12 bg-primary-600 text-white rounded-xl shadow-lg shadow-secondary-200 font-bold"
                                         >
                                             {isLoading ? (
                                                 <div className="flex items-center justify-center">

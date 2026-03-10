@@ -44,6 +44,20 @@ model User {
   achievements           UserAchievement[]
   profile                UserProfile?
   volunteer              Volunteer?
+  notificationPrefs      NotificationPreferences?
+}
+
+model NotificationPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  communityUpdates  Boolean  @default(true)
+  weeklyDigest      Boolean  @default(true)
+  mentionsReplies   Boolean  @default(true)
+  directMessages    Boolean  @default(true)
+  eventReminders    Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id])
 }
 
 model Notification {

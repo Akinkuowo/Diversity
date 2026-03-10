@@ -434,7 +434,7 @@ export default function CommunityDashboard() {
       value: communityStats.eventsAttended.toString(),
       change: 'Lifetime',
       icon: Calendar,
-      color: 'bg-orange-500',
+      color: 'bg-primary-500',
     },
     {
       title: 'Forum Posts',
@@ -455,7 +455,7 @@ export default function CommunityDashboard() {
       value: communityStats.impactPoints.toLocaleString(),
       change: 'Total Score',
       icon: Trophy,
-      color: 'bg-purple-500',
+      color: 'bg-secondary-500',
     },
   ];
 
@@ -480,7 +480,7 @@ export default function CommunityDashboard() {
         </div>
 
         {/* Welcome Banner */}
-        <Card className="bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+        <Card className="bg-primary-500 text-white">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -548,9 +548,9 @@ export default function CommunityDashboard() {
               <Card className="overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-2xl">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
-                    <Avatar className="w-10 h-10 ring-2 ring-orange-100">
+                    <Avatar className="w-10 h-10 ring-2 ring-primary-100">
                       <AvatarImage src={user?.profile?.avatar} />
-                      <AvatarFallback className="bg-orange-100 text-orange-600">{user?.firstName?.[0] || 'U'}</AvatarFallback>
+                      <AvatarFallback className="bg-primary-100 text-primary-600">{user?.firstName?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <CreatePostDialog user={user} onPostCreated={handlePostCreated} />
@@ -563,7 +563,7 @@ export default function CommunityDashboard() {
               <div className="space-y-5">
                 {isLoadingPosts ? (
                   <div className="p-12 text-center bg-white/50 rounded-2xl border border-dashed border-gray-200">
-                    <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto" />
+                    <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
                     <p className="text-gray-500 mt-4">Loading community feed...</p>
                   </div>
                 ) : posts.length === 0 ? (
@@ -580,7 +580,7 @@ export default function CommunityDashboard() {
                           <div className="flex items-center gap-3">
                             <Avatar className="w-10 h-10 ring-2 ring-gray-100 dark:ring-slate-700">
                               <AvatarImage src={post.user?.profile?.avatar} />
-                              <AvatarFallback className="bg-gradient-to-br from-orange-400 to-amber-500 text-white font-semibold">
+                              <AvatarFallback className="bg-primary-400 text-white font-semibold">
                                 {post.user?.firstName?.[0] || 'U'}
                               </AvatarFallback>
                             </Avatar>
@@ -589,7 +589,7 @@ export default function CommunityDashboard() {
                               <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                                 <span>{new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                 {post.location && (
-                                  <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">
+                                  <span className="inline-flex items-center gap-1 bg-primary-50 text-primary-600 px-2 py-0.5 rounded-full font-medium">
                                     <MapPin className="w-3 h-3" />
                                     {post.location}
                                   </span>
@@ -634,7 +634,7 @@ export default function CommunityDashboard() {
                               <Textarea
                                 value={editContent}
                                 onChange={(e) => setEditContent(e.target.value)}
-                                className="min-h-[100px] border-orange-200 focus-visible:ring-orange-500 rounded-xl resize-none text-[15px] leading-relaxed"
+                                className="min-h-[100px] border-primary-200 focus-visible:ring-primary-500 rounded-xl resize-none text-[15px] leading-relaxed"
                                 placeholder="Edit your post..."
                                 autoFocus
                               />
@@ -651,7 +651,7 @@ export default function CommunityDashboard() {
                                   size="sm"
                                   onClick={() => handleSaveEdit(post.id)}
                                   disabled={!editContent.trim()}
-                                  className="h-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white"
+                                  className="h-8 rounded-full bg-primary-500 hover:bg-primary-600 text-white"
                                 >
                                   Save Changes
                                 </Button>
@@ -679,8 +679,8 @@ export default function CommunityDashboard() {
                             <button
                               onClick={() => handleLike(post.id)}
                               className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full transition-all ${post.likedByMe
-                                ? 'text-orange-500 bg-orange-50 dark:bg-orange-500/10 font-medium'
-                                : 'text-gray-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10'
+                                ? 'text-primary-500 bg-primary-50 dark:bg-primary-500/10 font-medium'
+                                : 'text-gray-500 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/10'
                                 }`}
                             >
                               <ThumbsUp className={`w-4 h-4 ${post.likedByMe ? 'fill-current' : ''}`} />
@@ -712,7 +712,7 @@ export default function CommunityDashboard() {
                             {/* Comment Input */}
                             <div className="flex items-center gap-2">
                               <Avatar className="w-7 h-7">
-                                <AvatarFallback className="bg-orange-100 text-orange-600 text-xs">
+                                <AvatarFallback className="bg-primary-100 text-primary-600 text-xs">
                                   {user?.firstName?.[0] || 'U'}
                                 </AvatarFallback>
                               </Avatar>
@@ -728,7 +728,7 @@ export default function CommunityDashboard() {
                                   size="sm"
                                   onClick={() => handleAddComment(post.id)}
                                   disabled={!commentInputs[post.id]?.trim()}
-                                  className="h-8 px-3 bg-orange-500 hover:bg-orange-600 text-white"
+                                  className="h-8 px-3 bg-primary-500 hover:bg-primary-600 text-white"
                                 >
                                   <Send className="w-3.5 h-3.5" />
                                 </Button>
@@ -738,7 +738,7 @@ export default function CommunityDashboard() {
                             {/* Comments List */}
                             {loadingComments[post.id] ? (
                               <div className="text-center py-3">
-                                <div className="animate-spin w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full mx-auto" />
                               </div>
                             ) : (
                               (postComments[post.id] || []).map((comment: any) => (
@@ -792,7 +792,7 @@ export default function CommunityDashboard() {
                 <div className="space-y-4">
                   {upcomingEvents.map((event) => (
                     <div key={event.id} className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div className="w-16 h-16 bg-gradient-to-r from-orange-400 to-amber-400 rounded-lg flex items-center justify-center text-white font-bold">
+                      <div className="w-16 h-16 bg-primary-400 rounded-lg flex items-center justify-center text-white font-bold">
                         {new Date(event.date).getDate()}
                       </div>
                       <div className="flex-1">
@@ -813,7 +813,7 @@ export default function CommunityDashboard() {
                             {event.location}
                           </span>
                         </div>
-                        <Button size="sm" className="mt-3 bg-orange-500 text-white hover:bg-orange-600">
+                        <Button size="sm" className="mt-3 bg-primary-500 text-white hover:bg-primary-600">
                           RSVP
                         </Button>
                       </div>
@@ -832,7 +832,7 @@ export default function CommunityDashboard() {
                     <CardTitle>Community Forum</CardTitle>
                     <CardDescription>Discussions and topics</CardDescription>
                   </div>
-                  <Button size="sm" className="bg-orange-500 text-white hover:bg-orange-600">
+                  <Button size="sm" className="bg-primary-500 text-white hover:bg-primary-600">
                     New Topic
                   </Button>
                 </div>
@@ -876,12 +876,12 @@ export default function CommunityDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {nearbyBusinesses.map((business) => (
                     <Card key={business.id} className="overflow-hidden">
-                      <div className="h-24 bg-gradient-to-r from-purple-400 to-pink-400"></div>
+                      <div className="h-24 bg-primary-400"></div>
                       <CardContent className="p-4">
                         <h4 className="font-semibold">{business.name}</h4>
                         <p className="text-sm text-gray-600 dark:text-gray-400">{business.category}</p>
                         <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-600">
+                          <Badge variant="secondary" className="bg-secondary-100 text-secondary-600">
                             {business.badge}
                           </Badge>
                           <div className="flex items-center text-sm">

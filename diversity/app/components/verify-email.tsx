@@ -77,8 +77,8 @@ export default function VerifyEmail() {
         className="max-w-md w-full bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/20 text-center relative z-10"
       >
         <div className="relative mb-8">
-          <div className="w-24 h-24 bg-gradient-to-tr from-purple-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto relative">
-            <Mail className="w-12 h-12 text-purple-600" />
+          <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto relative">
+            <Mail className="w-12 h-12 text-secondary-600" />
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -90,11 +90,11 @@ export default function VerifyEmail() {
           </div>
 
           {/* Decorative blobs */}
-          <div className="absolute -top-4 -left-4 w-12 h-12 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob"></div>
-          <div className="absolute -bottom-4 -right-4 w-12 h-12 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-2000"></div>
+          <div className="absolute -top-4 -left-4 w-12 h-12 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob"></div>
+          <div className="absolute -bottom-4 -right-4 w-12 h-12 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-2000"></div>
         </div>
 
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 mb-4">
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-primary-600 mb-4">
           Check your email
         </h1>
 
@@ -130,7 +130,7 @@ export default function VerifyEmail() {
           <Button
             onClick={handleResend}
             disabled={isResending}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 h-12 rounded-xl text-lg font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full bg-primary-600 text-white hover:from-secondary-700 hover:to-secondary-700 h-12 rounded-xl text-lg font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]"
           >
             {isResending ? (
               <RefreshCw className="w-5 h-5 animate-spin mr-2" />
@@ -140,7 +140,7 @@ export default function VerifyEmail() {
           </Button>
 
           <Link href="/login" className="block">
-            <Button variant="ghost" className="w-full text-gray-500 hover:text-purple-600">
+            <Button variant="ghost" className="w-full text-gray-500 hover:text-secondary-600">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Sign In
             </Button>
@@ -152,7 +152,7 @@ export default function VerifyEmail() {
             Didn't receive the email? Check your spam folder or <br />
             <button
               onClick={handleResend}
-              className="text-purple-600 font-medium hover:underline"
+              className="text-secondary-600 font-medium hover:underline"
             >
               try another email address
             </button>

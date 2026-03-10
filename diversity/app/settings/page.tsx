@@ -31,18 +31,29 @@ import { useRouter } from 'next/navigation'
 export default function SettingsPage() {
     const [user, setUser] = useState<any>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [currentLang, setCurrentLang] = useState('en')
+    const [notifPrefs, setNotifPrefs] = useState({
+        communityUpdates: true,
+        weeklyDigest: true,
+        mentionsReplies: true,
+        directMessages: true,
+        eventReminders: true,
+    })
     const router = useRouter()
+
+    useEffect(() => {
+        // Read the googtrans cookie to show the active language
+        const match = document.cookie.match(/googtrans=\/en\/([^;]+)/)
+        if (match && match[1]) {
+            setCurrentLang(match[1])
+        }
+    }, [])
 
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                // Try to get from local storage first for fast render
                 const savedUser = localStorage.getItem('user')
-                if (savedUser) {
-                    setUser(JSON.parse(savedUser))
-                }
-
-                // Fetch fresh data
+                if (savedUser) setUser(JSON.parse(savedUser))
                 const userData = await api.get('/me')
                 setUser(userData)
                 localStorage.setItem('user', JSON.stringify(userData))
@@ -56,10 +67,44 @@ export default function SettingsPage() {
         fetchUser()
     }, [router])
 
+    useEffect(() => {
+        const fetchNotifPrefs = async () => {
+            try {
+                const prefs = await api.get('/users/me/notification-prefs')
+                setNotifPrefs({
+                    communityUpdates: prefs.communityUpdates,
+                    weeklyDigest: prefs.weeklyDigest,
+                    mentionsReplies: prefs.mentionsReplies,
+                    directMessages: prefs.directMessages,
+                    eventReminders: prefs.eventReminders,
+                })
+            } catch (e) {
+                // silently ignore – defaults remain
+            }
+        }
+        fetchNotifPrefs()
+    }, [])
+
+    const handleNotifToggle = async (key: keyof typeof notifPrefs, value: boolean) => {
+        const updated = { ...notifPrefs, [key]: value }
+        setNotifPrefs(updated)
+        try {
+            await api.put('/users/me/notification-prefs', { [key]: value })
+            toast.success(
+                value
+                    ? 'Notifications enabled. You\'ll receive emails for this.'
+                    : 'Notifications disabled.'
+            )
+        } catch (e) {
+            setNotifPrefs(notifPrefs) // rollback
+            toast.error('Failed to save notification preference.')
+        }
+    }
+
     if (isLoading && !user) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
             </div>
         )
     }
@@ -78,11 +123,11 @@ export default function SettingsPage() {
 
                 <Tabs defaultValue="account" className="space-y-6">
                     <TabsList className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 p-1 rounded-xl shadow-sm w-full sm:w-auto overflow-x-auto flex-nowrap justify-start h-auto">
-                        <TabsTrigger value="account" className="flex items-center gap-2 py-2.5 px-4 rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600 data-[state=active]:shadow-none transition-all">
+                        <TabsTrigger value="account" className="flex items-center gap-2 py-2.5 px-4 rounded-lg data-[state=active]:bg-primary-50 data-[state=active]:text-primary-600 data-[state=active]:shadow-none transition-all">
                             <User className="w-4 h-4" />
                             Account
                         </TabsTrigger>
-                        <TabsTrigger value="notifications" className="flex items-center gap-2 py-2.5 px-4 rounded-lg data-[state=active]:bg-purple-50 data-[state=active]:text-purple-600 data-[state=active]:shadow-none transition-all">
+                        <TabsTrigger value="notifications" className="flex items-center gap-2 py-2.5 px-4 rounded-lg data-[state=active]:bg-secondary-50 data-[state=active]:text-secondary-600 data-[state=active]:shadow-none transition-all">
                             <Bell className="w-4 h-4" />
                             Notifications
                         </TabsTrigger>
@@ -102,7 +147,7 @@ export default function SettingsPage() {
                             <Card className="border-none shadow-md">
                                 <CardHeader>
                                     <CardTitle className="flex items-center text-lg">
-                                        <Globe className="w-5 h-5 mr-2 text-orange-500" />
+                                        <Globe className="w-5 h-5 mr-2 text-primary-500" />
                                         Regional Preferences
                                     </CardTitle>
                                     <CardDescription>Customize your language and timezone settings.</CardDescription>
@@ -111,7 +156,20 @@ export default function SettingsPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Language</label>
-                                            <Select defaultValue="en">
+                                            <Select
+                                                value={currentLang}
+                                                onValueChange={(val) => {
+                                                    if (val === 'en') {
+                                                        // To revert to the original language, we must completely delete the cookie
+                                                        document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+                                                        document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`
+                                                    } else {
+                                                        // Set the translation cookie. Format: /en/[target-language]
+                                                        document.cookie = `googtrans=/en/${val}; path=/; max-age=31536000; samesite=lax`
+                                                    }
+                                                    window.location.reload()
+                                                }}
+                                            >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select Language" />
                                                 </SelectTrigger>
@@ -120,6 +178,11 @@ export default function SettingsPage() {
                                                     <SelectItem value="es">Español</SelectItem>
                                                     <SelectItem value="fr">Français</SelectItem>
                                                     <SelectItem value="de">Deutsch</SelectItem>
+                                                    <SelectItem value="it">Italiano</SelectItem>
+                                                    <SelectItem value="pt">Português</SelectItem>
+                                                    <SelectItem value="zh-CN">中文 (Simplified)</SelectItem>
+                                                    <SelectItem value="ja">日本語</SelectItem>
+                                                    <SelectItem value="ar">العربية</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -167,7 +230,7 @@ export default function SettingsPage() {
                             <Card className="border-none shadow-md">
                                 <CardHeader>
                                     <CardTitle className="flex items-center text-lg">
-                                        <Mail className="w-5 h-5 mr-2 text-purple-500" />
+                                        <Mail className="w-5 h-5 mr-2 text-secondary-500" />
                                         Email Notifications
                                     </CardTitle>
                                     <CardDescription>Control what emails you receive from us.</CardDescription>
@@ -200,7 +263,7 @@ export default function SettingsPage() {
                             <Card className="border-none shadow-md">
                                 <CardHeader>
                                     <CardTitle className="flex items-center text-lg">
-                                        <Smartphone className="w-5 h-5 mr-2 text-purple-500" />
+                                        <Smartphone className="w-5 h-5 mr-2 text-secondary-500" />
                                         Push Notifications
                                     </CardTitle>
                                     <CardDescription>Instant alerts delivered to your device.</CardDescription>
@@ -313,7 +376,7 @@ export default function SettingsPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="border-2 border-orange-500 bg-white p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
+                                        <div className="border-2 border-primary-500 bg-white p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
                                             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                                                 <Sun className="w-6 h-6 text-gray-900" />
                                             </div>
@@ -325,7 +388,7 @@ export default function SettingsPage() {
                                             </div>
                                             <p className="font-medium text-white">Dark Mode</p>
                                         </div>
-                                        <div className="border-2 border-transparent hover:border-gray-200 bg-gradient-to-br from-gray-100 to-slate-900 p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
+                                        <div className="border-2 border-transparent hover:border-gray-200 bg-primary-100 p-4 rounded-xl flex flex-col items-center gap-3 cursor-pointer">
                                             <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
                                                 <Monitor className="w-6 h-6 text-gray-900 dark:text-white" />
                                             </div>

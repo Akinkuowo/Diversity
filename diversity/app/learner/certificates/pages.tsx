@@ -221,7 +221,7 @@ export default function LearnerCertificatesPage() {
                             <Share2 className="w-4 h-4 mr-2" />
                             Share Profile
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                        <Button size="sm" className="bg-primary-500 text-white">
                             <Download className="w-4 h-4 mr-2" />
                             Download All
                         </Button>
@@ -259,8 +259,8 @@ export default function LearnerCertificatesPage() {
                     <Card>
                         <CardContent className="p-6">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                                    <GraduationCap className="w-6 h-6 text-purple-600" />
+                                <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center">
+                                    <GraduationCap className="w-6 h-6 text-secondary-600" />
                                 </div>
                                 <div>
                                     <p className="text-2xl font-bold">{certificates.length}</p>
@@ -269,7 +269,7 @@ export default function LearnerCertificatesPage() {
                             </div>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                    <Card className="bg-primary-600 text-white">
                         <CardContent className="p-6">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
@@ -321,7 +321,7 @@ export default function LearnerCertificatesPage() {
                                 >
                                     <Card className="overflow-hidden">
                                         {/* Certificate Header */}
-                                        <div className="h-32 bg-gradient-to-r from-purple-600 to-indigo-600 relative">
+                                        <div className="h-32 bg-primary-600 relative">
                                             <div className="absolute inset-0 bg-black opacity-10" />
                                             <div className="absolute top-4 right-4">
                                                 <Award className="w-8 h-8 text-white opacity-50" />

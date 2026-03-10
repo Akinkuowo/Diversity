@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Nunito_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const nunito = Nunito_Sans({
+  variable: "--font-nunito",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
@@ -17,6 +18,8 @@ export const metadata: Metadata = {
   description: "Fostering inclusion, diversity, and equity.",
 };
 
+import GoogleTranslate from "./components/GoogleTranslate";
+import TranslationFixer from "./components/TranslationFixer";
 import { Toaster } from "sonner";
 
 export default function RootLayout({
@@ -27,10 +30,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${nunito.variable} ${nunito.className} ${geistMono.variable} antialiased`}
       >
+        <TranslationFixer />
         {children}
         <Toaster position="bottom-right" />
+        <GoogleTranslate />
       </body>
     </html>
   );

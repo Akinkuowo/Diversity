@@ -535,7 +535,109 @@ fastify.put('/users/me/profile', async (request, reply) => {
   }
 });
 
-// GET User Community Stats
+// GET Notification Preferences
+fastify.get('/users/me/notification-prefs', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+  const token = authHeader.split(' ')[1];
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return reply.code(401).send({ message: 'Invalid token' });
+  }
+
+  // upsert so every user always has a preferences row
+  const prefs = await prisma.notificationPreferences.upsert({
+    where: { userId: decoded.userId },
+    create: { userId: decoded.userId },
+    update: {},
+  });
+  return prefs;
+});
+
+// PUT Notification Preferences
+fastify.put('/users/me/notification-prefs', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+  const token = authHeader.split(' ')[1];
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return reply.code(401).send({ message: 'Invalid token' });
+  }
+
+  const { communityUpdates, weeklyDigest, mentionsReplies, directMessages, eventReminders } = request.body;
+
+  // Fetch previous state so we can detect which prefs just turned ON
+  const previous = await prisma.notificationPreferences.findUnique({ where: { userId: decoded.userId } });
+
+  const updated = await prisma.notificationPreferences.upsert({
+    where: { userId: decoded.userId },
+    create: {
+      userId: decoded.userId,
+      communityUpdates: communityUpdates ?? true,
+      weeklyDigest: weeklyDigest ?? true,
+      mentionsReplies: mentionsReplies ?? true,
+      directMessages: directMessages ?? true,
+      eventReminders: eventReminders ?? true,
+    },
+    update: {
+      ...(communityUpdates !== undefined && { communityUpdates }),
+      ...(weeklyDigest !== undefined && { weeklyDigest }),
+      ...(mentionsReplies !== undefined && { mentionsReplies }),
+      ...(directMessages !== undefined && { directMessages }),
+      ...(eventReminders !== undefined && { eventReminders }),
+    },
+  });
+
+  // Fetch the user's email so we can send a notification email
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { email: true, firstName: true } });
+  if (user) {
+    const labelMap = {
+      communityUpdates: 'Community Updates',
+      weeklyDigest: 'Weekly Digest',
+      mentionsReplies: 'Mentions & Replies',
+      directMessages: 'Direct Messages',
+      eventReminders: 'Event Reminders',
+    };
+
+    const newlyEnabled = Object.keys(labelMap).filter(key => {
+      const wasOff = !previous || !previous[key];
+      const isNowOn = request.body[key] === true;
+      return wasOff && isNowOn;
+    });
+
+    if (newlyEnabled.length > 0) {
+      const labelList = newlyEnabled.map(k => `<li>${labelMap[k]}</li>`).join('');
+      await transporter.sendMail({
+        from: '"Diversity Network" <noreply@diversitynetwork.com>',
+        to: user.email,
+        subject: 'Notification preferences updated',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #008080;">Notification Preferences Updated</h2>
+            <p>Hi ${user.firstName},</p>
+            <p>You have just <strong>enabled</strong> email notifications for the following:</p>
+            <ul>${labelList}</ul>
+            <p>You will now receive email updates for these notifications. You can change your preferences anytime in <strong>Settings → Notifications</strong>.</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #94a3b8;">Diversity Network · Unsubscribe anytime via your <a href="http://localhost:3000/settings">Settings</a>.</p>
+          </div>
+        `,
+      }).catch(err => fastify.log.error('[NOTIFICATION EMAIL ERROR]', err));
+    }
+  }
+
+  return updated;
+});
+
+
 fastify.get('/users/me/community-stats', async (request, reply) => {
   const authHeader = request.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

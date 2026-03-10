@@ -90,14 +90,14 @@ export default function LoginForm() {
     return (
         <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50">
             {/* Left Side: Hero Section (Hidden on mobile) */}
-            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-indigo-900">
+            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-secondary-900">
                 <div className="absolute inset-0 z-0">
                     <img
                         src="/images/diversity-hero.png"
                         alt="Diversity and Inclusion"
                         className="w-full h-full object-cover opacity-60"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-indigo-950 via-indigo-900/40 to-transparent" />
+                    <div className="absolute inset-0 bg-primary-950" />
                 </div>
 
                 <div className="relative z-10 w-full flex flex-col justify-between p-12 text-white">
@@ -121,13 +121,13 @@ export default function LoginForm() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className="text-lg text-indigo-100/80 leading-relaxed"
+                            className="text-lg text-secondary-100/80 leading-relaxed"
                         >
                             Join a community dedicated to fostering inclusion, diversity, and equity across all professional landscapes.
                         </motion.p>
                     </div>
 
-                    <div className="flex items-center space-x-4 text-sm text-indigo-200/60">
+                    <div className="flex items-center space-x-4 text-sm text-secondary-200/60">
                         <span>© 2026 Diversity Network</span>
                         <span>•</span>
                         <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -137,8 +137,8 @@ export default function LoginForm() {
                 </div>
 
                 {/* Decorative Elements */}
-                <div className="absolute top-1/4 -right-20 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl" />
+                <div className="absolute top-1/4 -right-20 w-64 h-64 bg-secondary-500/20 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-secondary-500/20 rounded-full blur-3xl" />
             </div>
 
             {/* Right Side: Login Form */}
@@ -146,7 +146,7 @@ export default function LoginForm() {
                 {/* Mobile Logo (Visible only on mobile) */}
                 <div className="lg:hidden mb-8 text-center">
                     <Link href="/" className="inline-flex items-center justify-center mb-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg">
                             <span className="text-white font-bold text-2xl">DN</span>
                         </div>
                     </Link>
@@ -165,7 +165,7 @@ export default function LoginForm() {
                         </h2>
                         <p className="mt-3 text-gray-600">
                             Don't have an account?{' '}
-                            <Link href="/register" className="font-semibold text-purple-600 hover:text-purple-500 transition-colors">
+                            <Link href="/register" className="font-semibold text-secondary-600 hover:text-secondary-500 transition-colors">
                                 Create an account
                             </Link>
                         </p>
@@ -178,7 +178,7 @@ export default function LoginForm() {
                                     Email address
                                 </label>
                                 <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-purple-600">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-secondary-600">
                                         <Mail className="h-5 w-5 text-gray-400" />
                                     </div>
                                     <Input
@@ -202,12 +202,12 @@ export default function LoginForm() {
                                     <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
                                         Password
                                     </label>
-                                    <Link href="/forgot-password" className="text-sm font-medium text-purple-600 hover:text-purple-500">
+                                    <Link href="/forgot-password" className="text-sm font-medium text-secondary-600 hover:text-secondary-500">
                                         Forgot password?
                                     </Link>
                                 </div>
                                 <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-purple-600">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-secondary-600">
                                         <Lock className="h-5 w-5 text-gray-400" />
                                     </div>
                                     <Input
@@ -243,7 +243,7 @@ export default function LoginForm() {
                                 id="remember-me"
                                 type="checkbox"
                                 {...register('rememberMe')}
-                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded-md transition-all cursor-pointer"
+                                className="h-4 w-4 text-secondary-600 focus:ring-secondary-500 border-gray-300 rounded-md transition-all cursor-pointer"
                             />
                             <label htmlFor="remember-me" className="ml-2.5 block text-sm text-gray-600 cursor-pointer select-none">
                                 Keep me signed in
@@ -253,7 +253,7 @@ export default function LoginForm() {
                         <Button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 rounded-xl font-bold text-base shadow-lg shadow-purple-200 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                            className="w-full h-12 bg-primary-600 text-white hover:from-secondary-700 hover:to-secondary-700 rounded-xl font-bold text-base shadow-lg shadow-secondary-200 transition-all hover:scale-[1.01] active:scale-[0.99]"
                         >
                             {isLoading ? (
                                 <div className="flex items-center justify-center">

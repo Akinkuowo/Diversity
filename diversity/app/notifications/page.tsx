@@ -115,10 +115,10 @@ export default function NotificationsPage() {
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                <Bell className="w-5 h-5 text-purple-600" />
+                                <Bell className="w-5 h-5 text-secondary-600" />
                                 All Notifications
                                 {notifications.filter(n => !n.read).length > 0 && (
-                                    <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                                    <Badge variant="secondary" className="bg-secondary-100 text-secondary-700">
                                         {notifications.filter(n => !n.read).length} Unread
                                     </Badge>
                                 )}
@@ -128,7 +128,7 @@ export default function NotificationsPage() {
                     <CardContent className="p-0">
                         {isLoading ? (
                             <div className="p-8 text-center bg-gray-50/50">
-                                <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin w-8 h-8 border-4 border-secondary-500 border-t-transparent rounded-full mx-auto" />
                                 <p className="text-sm text-gray-500 mt-4">Loading notifications...</p>
                             </div>
                         ) : filteredNotifications.length === 0 ? (
@@ -146,7 +146,7 @@ export default function NotificationsPage() {
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0 }}
-                                            className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${!notification.read ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}
+                                            className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${!notification.read ? 'bg-secondary-50/30 dark:bg-secondary-900/10' : ''}`}
                                         >
                                             <div className="flex gap-4">
                                                 <div className="mt-1">
@@ -170,7 +170,7 @@ export default function NotificationsPage() {
                                                             <Button
                                                                 variant="link"
                                                                 size="sm"
-                                                                className="h-auto p-0 text-purple-600 font-semibold"
+                                                                className="h-auto p-0 text-secondary-600 font-semibold"
                                                                 onClick={() => markAsRead(notification.id)}
                                                             >
                                                                 Mark as read

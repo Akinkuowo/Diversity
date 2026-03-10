@@ -68,49 +68,49 @@ const levelColors = {
         text: 'text-blue-600',
         border: 'border-blue-200',
         icon: 'text-blue-600',
-        gradient: 'bg-gradient-to-br from-blue-50 to-cyan-50',
+        gradient: 'bg-primary-50',
     },
     partner: {
-        bg: 'from-purple-500 to-pink-500',
-        text: 'text-purple-600',
-        border: 'border-purple-200',
-        icon: 'text-purple-600',
-        gradient: 'bg-gradient-to-br from-purple-50 to-pink-50',
+        bg: 'from-secondary-500 to-pink-500',
+        text: 'text-secondary-600',
+        border: 'border-secondary-200',
+        icon: 'text-secondary-600',
+        gradient: 'bg-primary-50',
     },
     champion: {
-        bg: 'from-yellow-500 to-orange-500',
+        bg: 'from-yellow-500 to-primary-500',
         text: 'text-yellow-600',
         border: 'border-yellow-200',
         icon: 'text-yellow-600',
-        gradient: 'bg-gradient-to-br from-yellow-50 to-orange-50',
+        gradient: 'bg-primary-50',
     },
     platinum: {
         bg: 'from-gray-400 to-gray-600',
         text: 'text-gray-600',
         border: 'border-gray-200',
         icon: 'text-gray-600',
-        gradient: 'bg-gradient-to-br from-gray-50 to-gray-100',
+        gradient: 'bg-primary-50',
     },
     gold: {
         bg: 'from-yellow-400 to-yellow-600',
         text: 'text-yellow-600',
         border: 'border-yellow-200',
         icon: 'text-yellow-600',
-        gradient: 'bg-gradient-to-br from-yellow-50 to-amber-50',
+        gradient: 'bg-primary-50',
     },
     silver: {
         bg: 'from-gray-300 to-gray-500',
         text: 'text-gray-500',
         border: 'border-gray-200',
         icon: 'text-gray-500',
-        gradient: 'bg-gradient-to-br from-gray-50 to-slate-50',
+        gradient: 'bg-primary-50',
     },
     bronze: {
-        bg: 'from-amber-600 to-orange-700',
+        bg: 'from-amber-600 to-primary-700',
         text: 'text-amber-700',
         border: 'border-amber-200',
         icon: 'text-amber-700',
-        gradient: 'bg-gradient-to-br from-amber-50 to-orange-50',
+        gradient: 'bg-primary-50',
     },
 }
 
@@ -324,13 +324,13 @@ export function BadgeDetail({ open, onOpenChange, badge }: BadgeDetailProps) {
                     )}
 
                     {badge.status === 'locked' && (
-                        <Button className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                        <Button className="w-full bg-primary-600 text-white">
                             View Requirements
                         </Button>
                     )}
 
                     {badge.status === 'in-progress' && (
-                        <Button className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                        <Button className="w-full bg-primary-500 text-white">
                             Continue Progress
                         </Button>
                     )}

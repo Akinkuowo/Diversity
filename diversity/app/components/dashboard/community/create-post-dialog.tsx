@@ -183,13 +183,13 @@ export function CreatePostDialog({ user, onPostCreated }: { user: any, onPostCre
                 </DialogHeader>
                 <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                     <div className="flex items-center gap-3">
-                        <Avatar className="w-11 h-11 border-2 border-orange-100">
+                        <Avatar className="w-11 h-11 border-2 border-primary-100">
                             <AvatarImage src={user?.profile?.avatar} />
-                            <AvatarFallback className="bg-orange-50 text-orange-600 font-bold">{user?.firstName?.[0] || 'U'}</AvatarFallback>
+                            <AvatarFallback className="bg-primary-50 text-primary-600 font-bold">{user?.firstName?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
                             <p className="text-base font-bold text-gray-900 dark:text-white">{user?.firstName} {user?.lastName}</p>
-                            <Badge variant="secondary" className="bg-orange-50 text-orange-600 border-none px-2 py-0 text-[10px] uppercase font-bold tracking-wider">
+                            <Badge variant="secondary" className="bg-primary-50 text-primary-600 border-none px-2 py-0 text-[10px] uppercase font-bold tracking-wider">
                                 {user?.role?.toLowerCase().replace('_', ' ')}
                             </Badge>
                         </div>
@@ -237,7 +237,7 @@ export function CreatePostDialog({ user, onPostCreated }: { user: any, onPostCre
                         <div className="flex items-center gap-2">
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline" size="sm" className="rounded-full border-gray-200 text-gray-600 hover:text-orange-500 hover:border-orange-200">
+                                    <Button variant="outline" size="sm" className="rounded-full border-gray-200 text-gray-600 hover:text-primary-500 hover:border-primary-200">
                                         <Smile className="w-4 h-4 mr-2" />
                                         Emoji
                                     </Button>
@@ -326,7 +326,7 @@ export function CreatePostDialog({ user, onPostCreated }: { user: any, onPostCre
                 </div>
                 <DialogFooter className="px-6 py-4 border-t bg-gray-50/50 dark:bg-slate-900/50">
                     <Button
-                        className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 rounded-xl font-bold shadow-lg shadow-orange-500/20 active:scale-95 transition-all"
+                        className="w-full bg-primary-500 hover:bg-primary-600 text-white h-12 rounded-xl font-bold shadow-lg shadow-primary-500/20 active:scale-95 transition-all"
                         disabled={!content.trim() || isSubmitting || isUploading}
                         onClick={handleSubmit}
                     >

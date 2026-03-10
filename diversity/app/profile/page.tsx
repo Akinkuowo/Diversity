@@ -158,7 +158,7 @@ export default function ProfilePage() {
         return (
             <DashboardLayout role="COMMUNITY_MEMBER">
                 <div className="flex items-center justify-center p-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
                 </div>
             </DashboardLayout>
         )
@@ -189,7 +189,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex gap-2">
                         {!isEditing ? (
-                            <Button onClick={() => setIsEditing(true)} className="bg-orange-500 hover:bg-orange-600">
+                            <Button onClick={() => setIsEditing(true)} className="bg-primary-500 hover:bg-primary-600">
                                 <Edit2 className="w-4 h-4 mr-2" />
                                 Edit Profile
                             </Button>
@@ -210,13 +210,13 @@ export default function ProfilePage() {
 
                 {/* Top Overview Card */}
                 <Card className="overflow-hidden border-none shadow-md">
-                    <div className="h-32 bg-gradient-to-r from-orange-400 via-rose-400 to-purple-500"></div>
+                    <div className="h-32 bg-primary-400"></div>
                     <CardContent className="relative pt-0 px-6 pb-6 sm:px-10 sm:pb-10">
                         <div className="flex flex-col sm:flex-row gap-6 relative -top-12">
                             <div className="relative group">
                                 <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-white shadow-xl dark:border-gray-900 bg-white">
                                     <AvatarImage src={isEditing ? editForm.avatar : profile?.avatar} className="object-cover" />
-                                    <AvatarFallback className="text-2xl sm:text-4xl bg-orange-100 text-orange-600">
+                                    <AvatarFallback className="text-2xl sm:text-4xl bg-primary-100 text-primary-600">
                                         {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                                     </AvatarFallback>
                                 </Avatar>
@@ -245,7 +245,7 @@ export default function ProfilePage() {
                                     {profile?.impactPoints > 1000 && <CheckCircle className="w-5 h-5 text-blue-500" />}
                                 </h2>
                                 <div className="flex items-center gap-2 mt-1 text-gray-600 dark:text-gray-400">
-                                    <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">
+                                    <Badge variant="outline" className="text-primary-600 bg-primary-50 border-primary-200">
                                         {user?.role?.replace('_', ' ')}
                                     </Badge>
                                     {profile?.city && profile?.country && (
@@ -259,7 +259,7 @@ export default function ProfilePage() {
 
                             <div className="pt-2 sm:pt-14 flex sm:flex-col gap-4 text-sm whitespace-nowrap">
                                 <div className="flex items-center text-gray-600 dark:text-gray-400">
-                                    <Users className="w-4 h-4 mr-2 text-indigo-500" />
+                                    <Users className="w-4 h-4 mr-2 text-secondary-500" />
                                     <span className="font-semibold text-gray-900 dark:text-white mr-1">{profile?.connections || 0}</span> Connections
                                 </div>
                                 <div className="flex items-center text-gray-600 dark:text-gray-400">
@@ -303,7 +303,7 @@ export default function ProfilePage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center text-lg">
-                                    <User className="w-5 h-5 mr-2 text-orange-500" />
+                                    <User className="w-5 h-5 mr-2 text-primary-500" />
                                     About Me
                                 </CardTitle>
                             </CardHeader>
@@ -428,7 +428,7 @@ export default function ProfilePage() {
                                         />
                                     </div>
                                 ) : (
-                                    renderBadgeArray(profile?.interests, "No interests listed", "bg-purple-100 text-purple-700 hover:bg-purple-200")
+                                    renderBadgeArray(profile?.interests, "No interests listed", "bg-secondary-100 text-secondary-700 hover:bg-secondary-200")
                                 )}
                             </CardContent>
                         </Card>

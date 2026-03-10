@@ -77,25 +77,25 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-200">
+            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center shadow-lg shadow-secondary-200">
               <span className="text-white font-bold text-xl">DN</span>
             </div>
-            <span className="font-bold text-xl text-gray-900 tracking-tight">Diversity<span className="text-purple-600">Network</span></span>
+            <span className="font-bold text-xl text-gray-900 tracking-tight">Diversity<span className="text-secondary-600">Network</span></span>
           </Link>
 
           {/* Desktop Navigation */}
           {!isAuthPage && (
             <div className="hidden md:flex items-center space-x-8">
-              <Link href="/#features" className="text-gray-600 hover:text-purple-600 transition-colors font-medium">
+              <Link href="/#features" className="text-gray-600 hover:text-secondary-600 transition-colors font-medium">
                 Features
               </Link>
-              <Link href="/#solutions" className="text-gray-600 hover:text-purple-600 transition-colors font-medium">
+              <Link href="/#solutions" className="text-gray-600 hover:text-secondary-600 transition-colors font-medium">
                 Solutions
               </Link>
-              <Link href="/#impact" className="text-gray-600 hover:text-purple-600 transition-colors font-medium">
+              <Link href="/#impact" className="text-gray-600 hover:text-secondary-600 transition-colors font-medium">
                 Impact
               </Link>
-              <Link href="/#testimonials" className="text-gray-600 hover:text-purple-600 transition-colors font-medium">
+              <Link href="/#testimonials" className="text-gray-600 hover:text-secondary-600 transition-colors font-medium">
                 Testimonials
               </Link>
             </div>
@@ -107,7 +107,7 @@ export default function Navbar() {
               {user ? (
                 <div className="flex items-center space-x-4">
                   <Link href={getDashboardPath()}>
-                    <Button variant="ghost" className="text-purple-600 font-semibold hover:bg-purple-50">
+                    <Button variant="ghost" className="text-secondary-600 font-semibold hover:bg-secondary-50">
                       <LayoutDashboard className="w-4 h-4 mr-2" />
                       Dashboard
                     </Button>
@@ -115,9 +115,9 @@ export default function Navbar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                        <Avatar className="h-10 w-10 border-2 border-purple-100">
+                        <Avatar className="h-10 w-10 border-2 border-secondary-100">
                           {user.profile?.avatar && <AvatarImage src={user.profile.avatar} />}
-                          <AvatarFallback className="bg-purple-600 text-white font-bold">
+                          <AvatarFallback className="bg-secondary-600 text-white font-bold">
                             {user.firstName?.[0] || 'U'}
                           </AvatarFallback>
                         </Avatar>
@@ -149,7 +149,7 @@ export default function Navbar() {
                     <Button variant="ghost" className="font-semibold text-gray-700">Sign In</Button>
                   </Link>
                   <Link href="/register">
-                    <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 font-bold px-6 shadow-md shadow-purple-100 rounded-xl transition-all active:scale-95">
+                    <Button className="bg-primary-600 text-white hover:from-secondary-700 hover:to-secondary-700 font-bold px-6 shadow-md shadow-secondary-100 rounded-xl transition-all active:scale-95">
                       Join Free
                     </Button>
                   </Link>
@@ -180,16 +180,16 @@ export default function Navbar() {
             className="md:hidden bg-white border-t border-gray-100 overflow-hidden"
           >
             <div className="container mx-auto px-4 py-6 space-y-4">
-              <Link href="/#features" className="block py-2 text-gray-600 hover:text-purple-600 font-medium" onClick={() => setIsMenuOpen(false)}>
+              <Link href="/#features" className="block py-2 text-gray-600 hover:text-secondary-600 font-medium" onClick={() => setIsMenuOpen(false)}>
                 Features
               </Link>
-              <Link href="/#solutions" className="block py-2 text-gray-600 hover:text-purple-600 font-medium" onClick={() => setIsMenuOpen(false)}>
+              <Link href="/#solutions" className="block py-2 text-gray-600 hover:text-secondary-600 font-medium" onClick={() => setIsMenuOpen(false)}>
                 Solutions
               </Link>
-              <Link href="/#impact" className="block py-2 text-gray-600 hover:text-purple-600 font-medium" onClick={() => setIsMenuOpen(false)}>
+              <Link href="/#impact" className="block py-2 text-gray-600 hover:text-secondary-600 font-medium" onClick={() => setIsMenuOpen(false)}>
                 Impact
               </Link>
-              <Link href="/#testimonials" className="block py-2 text-gray-600 hover:text-purple-600 font-medium" onClick={() => setIsMenuOpen(false)}>
+              <Link href="/#testimonials" className="block py-2 text-gray-600 hover:text-secondary-600 font-medium" onClick={() => setIsMenuOpen(false)}>
                 Testimonials
               </Link>
 
@@ -197,7 +197,7 @@ export default function Navbar() {
                 {user ? (
                   <>
                     <Link href={getDashboardPath()} className="block" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full bg-purple-600 text-white font-bold h-12 rounded-xl">
+                      <Button className="w-full bg-secondary-600 text-white font-bold h-12 rounded-xl">
                         Dashboard
                       </Button>
                     </Link>
@@ -211,7 +211,7 @@ export default function Navbar() {
                       <Button variant="outline" className="w-full h-12 rounded-xl font-bold">Sign In</Button>
                     </Link>
                     <Link href="/register" className="block" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-xl">
+                      <Button className="w-full h-12 bg-primary-600 text-white font-bold rounded-xl">
                         Join Free
                       </Button>
                     </Link>

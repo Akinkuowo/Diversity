@@ -8,7 +8,7 @@ const badgeVariants = cva(
         variants: {
             variant: {
                 default:
-                    "border-transparent bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700",
+                    "border-transparent bg-primary-600 text-white hover:from-secondary-700 hover:to-secondary-700",
                 secondary:
                     "border-transparent bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-50 dark:hover:bg-gray-700",
                 destructive:
@@ -21,7 +21,7 @@ const badgeVariants = cva(
                 info:
                     "border-transparent bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300",
                 purple:
-                    "border-transparent bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300",
+                    "border-transparent bg-secondary-100 text-secondary-700 hover:bg-secondary-200 dark:bg-secondary-900 dark:text-secondary-300",
             },
             size: {
                 default: "px-2.5 py-0.5 text-xs",

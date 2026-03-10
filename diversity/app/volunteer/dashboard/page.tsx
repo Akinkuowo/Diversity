@@ -99,14 +99,14 @@ const stats = [
         value: '12',
         change: '3 new',
         icon: Award,
-        color: 'bg-purple-500',
+        color: 'bg-secondary-500',
     },
     {
         title: 'Impact Score',
         value: '85%',
         change: '+5.2%',
         icon: Target,
-        color: 'bg-orange-500',
+        color: 'bg-primary-500',
     },
 ]
 
@@ -258,7 +258,7 @@ export default function VolunteerDashboard() {
                             <Share2 className="w-4 h-4 mr-2" />
                             Share Profile
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                        <Button size="sm" className="bg-primary-500 text-white">
                             <Bell className="w-4 h-4 mr-2" />
                             Find Opportunities
                         </Button>
@@ -266,7 +266,7 @@ export default function VolunteerDashboard() {
                 </div>
 
                 {/* Welcome Banner */}
-                <Card className="bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                <Card className="bg-primary-500 text-white">
                     <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                             <div>
@@ -497,7 +497,7 @@ export default function VolunteerDashboard() {
                                         const Icon = achievement.icon
                                         const achievementColors: Record<string, { bg: string, text: string }> = {
                                             yellow: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-                                            purple: { bg: 'bg-purple-100', text: 'text-purple-600' },
+                                            purple: { bg: 'bg-secondary-100', text: 'text-secondary-600' },
                                             blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
                                             green: { bg: 'bg-green-100', text: 'text-green-600' },
                                         }
@@ -528,12 +528,12 @@ export default function VolunteerDashboard() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3">
-                                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                    <div className="p-3 bg-secondary-50 dark:bg-secondary-900/20 rounded-lg">
                                         <p className="font-medium">Tutoring Program</p>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">Local School District</p>
                                         <div className="flex items-center justify-between mt-2">
                                             <Badge variant="secondary">2 hours/week</Badge>
-                                            <Button size="sm" variant="ghost" className="text-purple-600">Apply</Button>
+                                            <Button size="sm" variant="ghost" className="text-secondary-600">Apply</Button>
                                         </div>
                                     </div>
                                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">

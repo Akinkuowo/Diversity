@@ -83,7 +83,7 @@ const stats = [
         value: '1,234',
         change: '+8.2%',
         icon: Building2,
-        color: 'bg-purple-500',
+        color: 'bg-secondary-500',
     },
     {
         title: 'Courses',
@@ -97,7 +97,7 @@ const stats = [
         value: '89',
         change: '+15.7%',
         icon: Calendar,
-        color: 'bg-orange-500',
+        color: 'bg-primary-500',
     },
     {
         title: 'Volunteers',
@@ -111,7 +111,7 @@ const stats = [
         value: '$45,678',
         change: '+32.1%',
         icon: DollarSign,
-        color: 'bg-indigo-500',
+        color: 'bg-secondary-500',
     },
 ]
 
@@ -240,7 +240,7 @@ export default function AdminDashboard() {
                             <Download className="w-4 h-4 mr-2" />
                             Export Report
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                        <Button size="sm" className="bg-primary-600 text-white">
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Refresh Data
                         </Button>
@@ -463,7 +463,7 @@ export default function AdminDashboard() {
                                     <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                         <div className="flex items-center gap-3">
                                             <Avatar>
-                                                <AvatarFallback className="bg-purple-100 text-purple-600">
+                                                <AvatarFallback className="bg-secondary-100 text-secondary-600">
                                                     {user.name.split(' ').map(n => n[0]).join('')}
                                                 </AvatarFallback>
                                             </Avatar>

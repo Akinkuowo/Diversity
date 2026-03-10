@@ -204,7 +204,7 @@ export default function BusinessBadgePage() {
                             <Share2 className="w-4 h-4 mr-2" />
                             Share Progress
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                        <Button size="sm" className="bg-primary-600 text-white">
                             <Download className="w-4 h-4 mr-2" />
                             Download Report
                         </Button>
@@ -212,7 +212,7 @@ export default function BusinessBadgePage() {
                 </div>
 
                 {/* Current Badge Status */}
-                <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                <Card className="bg-primary-600 text-white">
                     <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                             <div>

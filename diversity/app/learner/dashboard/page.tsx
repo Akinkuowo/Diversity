@@ -94,14 +94,14 @@ const stats = [
         value: '4',
         change: '+1 new',
         icon: Award,
-        color: 'bg-purple-500',
+        color: 'bg-secondary-500',
     },
     {
         title: 'CPD Hours',
         value: '42',
         change: '+8 this month',
         icon: Clock,
-        color: 'bg-orange-500',
+        color: 'bg-primary-500',
     },
 ]
 
@@ -232,7 +232,7 @@ export default function LearnerDashboard() {
                             <Bookmark className="w-4 h-4 mr-2" />
                             Saved
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                        <Button size="sm" className="bg-primary-500 text-white">
                             <GraduationCap className="w-4 h-4 mr-2" />
                             Browse Courses
                         </Button>
@@ -240,7 +240,7 @@ export default function LearnerDashboard() {
                 </div>
 
                 {/* Welcome Banner */}
-                <Card className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                <Card className="bg-primary-500 text-white">
                     <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                             <div>
@@ -316,7 +316,7 @@ export default function LearnerDashboard() {
                                     {inProgressCourses.map((course) => (
                                         <div key={course.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                             <div className="flex items-start gap-4">
-                                                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold">
+                                                <div className="w-16 h-16 bg-primary-500 rounded-lg flex items-center justify-center text-white font-bold">
                                                     {course.title.split(' ').map(w => w[0]).join('')}
                                                 </div>
                                                 <div className="flex-1">
@@ -430,7 +430,7 @@ export default function LearnerDashboard() {
                                 <div className="space-y-3">
                                     {recommendedCourses.map((course) => (
                                         <div key={course.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                                            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                                            <div className="w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
                                                 {course.level[0]}
                                             </div>
                                             <div className="flex-1">

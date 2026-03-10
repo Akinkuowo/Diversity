@@ -49,8 +49,8 @@ export default function VerifyTokenPage() {
       
       {/* Background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-100/50 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-100/50 rounded-full blur-[120px]" />
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary-100/50 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-secondary-100/50 rounded-full blur-[120px]" />
       </div>
 
       <div className="pt-32 pb-12 relative z-10 flex items-center justify-center px-4">
@@ -61,7 +61,7 @@ export default function VerifyTokenPage() {
         >
           {status === 'loading' && (
             <div className="py-12">
-              <Loader2 className="w-16 h-16 text-purple-600 animate-spin mx-auto mb-6" />
+              <Loader2 className="w-16 h-16 text-secondary-600 animate-spin mx-auto mb-6" />
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying your email...</h2>
               <p className="text-gray-600">Please wait while we activate your account.</p>
             </div>
@@ -78,7 +78,7 @@ export default function VerifyTokenPage() {
               </p>
               <div className="space-y-4">
                 <Link href="/login">
-                  <Button className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white h-12 rounded-xl text-lg font-medium">
+                  <Button className="w-full bg-primary-600 text-white h-12 rounded-xl text-lg font-medium">
                     Continue to Login
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>

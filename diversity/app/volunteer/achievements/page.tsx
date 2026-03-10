@@ -220,7 +220,7 @@ export default function VolunteerAchievementsPage() {
                             <Share2 className="w-4 h-4 mr-2" />
                             Share Profile
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                        <Button size="sm" className="bg-primary-500 text-white">
                             <Download className="w-4 h-4 mr-2" />
                             Download CV
                         </Button>
@@ -245,14 +245,14 @@ export default function VolunteerAchievementsPage() {
                     </Card>
                     <Card>
                         <CardContent className="p-4 text-center">
-                            <Award className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+                            <Award className="w-6 h-6 text-secondary-500 mx-auto mb-2" />
                             <p className="text-2xl font-bold">{stats.badgesEarned}</p>
                             <p className="text-xs text-gray-500">Badges</p>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="p-4 text-center">
-                            <TrendingUp className="w-6 h-6 text-orange-500 mx-auto mb-2" />
+                            <TrendingUp className="w-6 h-6 text-primary-500 mx-auto mb-2" />
                             <p className="text-2xl font-bold">{stats.currentStreak}</p>
                             <p className="text-xs text-gray-500">Day Streak</p>
                         </CardContent>
@@ -264,7 +264,7 @@ export default function VolunteerAchievementsPage() {
                             <p className="text-xs text-gray-500">Impact Score</p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                    <Card className="bg-primary-500 text-white">
                         <CardContent className="p-4 text-center">
                             <Trophy className="w-6 h-6 mx-auto mb-2" />
                             <p className="text-2xl font-bold">{stats.ranking}</p>
@@ -281,7 +281,7 @@ export default function VolunteerAchievementsPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
+                            <div className="w-16 h-16 bg-primary-500 rounded-xl flex items-center justify-center">
                                 <Trophy className="w-8 h-8 text-white" />
                             </div>
                             <div className="flex-1">

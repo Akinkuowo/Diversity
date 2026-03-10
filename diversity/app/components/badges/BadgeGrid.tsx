@@ -47,7 +47,7 @@ const statusFilters = [
 
 const levelColors = {
     supporter: 'bg-blue-100 text-blue-600 border-blue-200',
-    partner: 'bg-purple-100 text-purple-600 border-purple-200',
+    partner: 'bg-secondary-100 text-secondary-600 border-secondary-200',
     champion: 'bg-yellow-100 text-yellow-600 border-yellow-200',
     platinum: 'bg-gray-100 text-gray-600 border-gray-200',
     gold: 'bg-yellow-100 text-yellow-600 border-yellow-200',
@@ -81,7 +81,7 @@ export function BadgeGrid({ badges, onBadgeClick, className }: BadgeGridProps) {
         <div className={cn("space-y-6", className)}>
             {/* Stats Overview */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 text-white">
+                <div className="bg-primary-600 rounded-lg p-4 text-white">
                     <p className="text-sm opacity-90">Total Badges</p>
                     <p className="text-2xl font-bold">{stats.total}</p>
                 </div>
@@ -216,7 +216,7 @@ export function BadgeGrid({ badges, onBadgeClick, className }: BadgeGridProps) {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {badge.points && (
-                                        <Badge variant="secondary" className="bg-purple-100 text-purple-600">
+                                        <Badge variant="secondary" className="bg-secondary-100 text-secondary-600">
                                             {badge.points} pts
                                         </Badge>
                                     )}

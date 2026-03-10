@@ -95,7 +95,7 @@ const stats = [
         value: '1,456',
         change: '+234',
         icon: BookOpen,
-        color: 'bg-purple-500',
+        color: 'bg-secondary-500',
     },
     {
         title: 'Volunteer Hours',
@@ -109,7 +109,7 @@ const stats = [
         value: '85%',
         change: '+5.2%',
         icon: Target,
-        color: 'bg-orange-500',
+        color: 'bg-primary-500',
     },
 ]
 
@@ -186,7 +186,7 @@ export default function BusinessDashboard() {
                             <Download className="w-4 h-4 mr-2" />
                             Export Report
                         </Button>
-                        <Button size="sm" className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                        <Button size="sm" className="bg-primary-600 text-white">
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Refresh
                         </Button>
@@ -194,7 +194,7 @@ export default function BusinessDashboard() {
                 </div>
 
                 {/* Badge Status */}
-                <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                <Card className="bg-primary-600 text-white">
                     <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                             <div>
@@ -222,7 +222,7 @@ export default function BusinessDashboard() {
                                     })}
                                 </div>
                             </div>
-                            <Button variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100">
+                            <Button variant="secondary" className="bg-white text-secondary-600 hover:bg-gray-100">
                                 View All Badges
                             </Button>
                         </div>
@@ -313,12 +313,12 @@ export default function BusinessDashboard() {
                                             <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activity.type === 'course' ? 'bg-blue-100' :
                                                         activity.type === 'volunteer' ? 'bg-green-100' :
-                                                            activity.type === 'event' ? 'bg-orange-100' : 'bg-purple-100'
+                                                            activity.type === 'event' ? 'bg-primary-100' : 'bg-secondary-100'
                                                     }`}>
                                                     {activity.type === 'course' && <BookOpen className="w-5 h-5 text-blue-600" />}
                                                     {activity.type === 'volunteer' && <Heart className="w-5 h-5 text-green-600" />}
-                                                    {activity.type === 'event' && <Calendar className="w-5 h-5 text-orange-600" />}
-                                                    {activity.type === 'badge' && <Award className="w-5 h-5 text-purple-600" />}
+                                                    {activity.type === 'event' && <Calendar className="w-5 h-5 text-primary-600" />}
+                                                    {activity.type === 'badge' && <Award className="w-5 h-5 text-secondary-600" />}
                                                 </div>
                                                 <div className="flex-1">
                                                     <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.title}</p>

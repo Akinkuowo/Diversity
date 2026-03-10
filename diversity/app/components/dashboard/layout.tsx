@@ -85,10 +85,10 @@ interface DashboardLayoutProps {
 
 const roleColors = {
     ADMIN: 'from-red-500 to-pink-500',
-    BUSINESS: 'from-purple-500 to-indigo-500',
+    BUSINESS: 'from-secondary-500 to-secondary-500',
     VOLUNTEER: 'from-green-500 to-emerald-500',
     LEARNER: 'from-blue-500 to-cyan-500',
-    COMMUNITY_MEMBER: 'from-orange-500 to-amber-500',
+    COMMUNITY_MEMBER: 'from-primary-500 to-amber-500',
 }
 
 const roleIcons = {
@@ -187,7 +187,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Volunteers', href: '/admin/volunteers', icon: Heart },
             { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
             { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
-            { name: 'Settings', href: '/admin/settings', icon: Settings },
+            { name: 'Settings', href: '/settings', icon: Settings },
         ],
         BUSINESS: [
             { name: 'Dashboard', href: '/business/dashboard', icon: LayoutDashboard },
@@ -198,7 +198,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Volunteering', href: '/business/volunteering', icon: Heart },
             { name: 'Sponsorships', href: '/business/sponsorships', icon: Gift },
             { name: 'Impact Report', href: '/business/impact', icon: Target },
-            { name: 'Settings', href: '/business/settings', icon: Settings },
+            { name: 'Settings', href: '/settings', icon: Settings },
         ],
         VOLUNTEER: [
             { name: 'Dashboard', href: '/volunteer/dashboard', icon: LayoutDashboard },
@@ -209,7 +209,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Events', href: '/volunteer/events', icon: Calendar },
             { name: 'Training', href: '/volunteer/training', icon: BookOpen },
             { name: 'Community', href: '/volunteer/community', icon: Users2 },
-            { name: 'Settings', href: '/volunteer/settings', icon: Settings },
+            { name: 'Settings', href: '/settings', icon: Settings },
         ],
         LEARNER: [
             { name: 'Dashboard', href: '/learner/dashboard', icon: LayoutDashboard },
@@ -220,7 +220,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Resources', href: '/learner/resources', icon: FileSpreadsheet },
             { name: 'Progress', href: '/learner/progress', icon: Activity },
             { name: 'Community', href: '/learner/community', icon: Users2 },
-            { name: 'Settings', href: '/learner/settings', icon: Settings },
+            { name: 'Settings', href: '/settings', icon: Settings },
         ],
         COMMUNITY_MEMBER: [
             { name: 'Dashboard', href: '/community/dashboard', icon: LayoutDashboard },
@@ -231,7 +231,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Volunteer', href: '/community/volunteer', icon: Heart },
             { name: 'Announcements', href: '/community/announcements', icon: Bell },
             { name: 'Network', href: '/community/network', icon: Users2 },
-            { name: 'Settings', href: '/community/settings', icon: Settings },
+            { name: 'Settings', href: '/settings', icon: Settings },
         ],
     }
 
@@ -322,7 +322,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                     )}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                        className="text-center text-purple-600 cursor-pointer justify-center"
+                                        className="text-center text-secondary-600 cursor-pointer justify-center"
                                         onClick={() => router.push('/notifications')}
                                     >
                                         View all notifications
@@ -336,7 +336,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                     <Button variant="ghost" className="flex items-center gap-2">
                                         <Avatar className="w-8 h-8">
                                             {user?.profile?.avatar && <AvatarImage src={user.profile.avatar} />}
-                                            <AvatarFallback className={`bg-gradient-to-r ${roleColors[role]} text-white uppercase`}>
+                                            <AvatarFallback className={`bg-primary-600 text-white uppercase`}>
                                                 {user?.firstName ? `${user.firstName[0]}${user.lastName?.[0] || ''}` : 'U'}
                                             </AvatarFallback>
                                         </Avatar>
@@ -354,7 +354,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                         <UserCircle className="w-4 h-4 mr-2" />
                                         Profile
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/settings')}>
                                         <Settings className="w-4 h-4 mr-2" />
                                         Settings
                                     </DropdownMenuItem>
@@ -389,10 +389,10 @@ function DesktopSidebar({ navigation, role }: { navigation: any[]; role: string 
         <div className="flex flex-col h-full">
             {/* Logo */}
             <div className="h-16 flex items-center gap-2 px-6 border-b border-gray-200 dark:border-gray-700">
-                <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} flex items-center justify-center`}>
+                <div className={`w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center`}>
                     <span className="text-white font-bold text-lg">DN</span>
                 </div>
-                <span className="font-semibold text-lg">Diversity<span className="text-purple-600">Network</span></span>
+                <span className="font-semibold text-lg">Diversity<span className="text-secondary-600">Network</span></span>
             </div>
 
             {/* Navigation */}
@@ -407,7 +407,7 @@ function DesktopSidebar({ navigation, role }: { navigation: any[]; role: string 
                                 key={item.name}
                                 href={item.href}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                                    ? `bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} text-white`
+                                    ? `bg-primary-600 text-white`
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
                             >
@@ -444,7 +444,7 @@ function MobileSidebar({ navigation, role, onClose }: { navigation: any[]; role:
             {/* Header */}
             <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} flex items-center justify-center`}>
+                    <div className={`w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center`}>
                         <span className="text-white font-bold text-lg">DN</span>
                     </div>
                     <span className="font-semibold">DiversityNetwork</span>
@@ -467,7 +467,7 @@ function MobileSidebar({ navigation, role, onClose }: { navigation: any[]; role:
                                 href={item.href}
                                 onClick={onClose}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                                    ? `bg-gradient-to-r ${roleColors[role as keyof typeof roleColors]} text-white`
+                                    ? `bg-primary-600 text-white`
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
                             >
