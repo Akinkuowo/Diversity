@@ -1604,34 +1604,298 @@ fastify.get('/resources/meta', async (request, reply) => {
   }
 });
 
-// Get single resource
-fastify.get('/resources/:id', async (request, reply) => {
+// --- Business Directory API ---
+
+// Get all businesses with filtering
+fastify.get('/businesses', async (request, reply) => {
+  const { industry, badgeLevel, search } = request.query;
+  try {
+    const where = {
+      verificationStatus: 'VERIFIED'
+    };
+
+    if (industry && industry !== 'all') {
+      where.industry = industry;
+    }
+    if (badgeLevel && badgeLevel !== 'all') {
+      where.badgeLevel = badgeLevel;
+    }
+    if (search) {
+      where.OR = [
+        { companyName: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const businesses = await prisma.business.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: { select: { avatar: true } }
+          }
+        },
+        _count: {
+          select: { testimonials: true, corporateVolunteering: true }
+        }
+      },
+      orderBy: { companyName: 'asc' }
+    });
+
+    return businesses;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get unique industries and sizes for filters
+fastify.get('/businesses/meta', async (request, reply) => {
+  try {
+    const industries = await prisma.business.findMany({
+      where: { verificationStatus: 'VERIFIED' },
+      select: { industry: true }
+    });
+
+    const uniqueIndustries = [...new Set(industries.map(b => b.industry))];
+
+    return {
+      industries: uniqueIndustries,
+      badgeLevels: ['CHAMPION', 'INCLUSION_PARTNER', 'SUPPORTER']
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get single business
+fastify.get('/businesses/:id', async (request, reply) => {
   const { id } = request.params;
   try {
-    const resource = await prisma.resource.findUnique({
+    const business = await prisma.business.findUnique({
       where: { id },
       include: {
-        author: {
+        user: {
           select: {
             firstName: true,
             lastName: true,
             profile: { select: { avatar: true, bio: true } }
           }
+        },
+        testimonials: {
+          where: { isApproved: true },
+          include: { user: { select: { firstName: true, lastName: true, profile: { select: { avatar: true } } } } }
+        },
+        _count: {
+          select: { corporateVolunteering: true, sponsorships: true }
         }
       }
     });
 
-    if (!resource) {
-      return reply.code(404).send({ message: 'Resource not found' });
+    if (!business) {
+      return reply.code(404).send({ message: 'Business not found' });
     }
 
-    // Increment views
-    await prisma.resource.update({
-      where: { id },
-      data: { views: { increment: 1 } }
+    return business;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// --- Volunteer Discovery API ---
+
+// Get all volunteer tasks with filtering
+fastify.get('/community/volunteer/tasks', async (request, reply) => {
+  const { project, status, search } = request.query;
+  try {
+    const where = {};
+
+    if (project && project !== 'all') {
+      where.project = project;
+    }
+    if (status && status !== 'all') {
+      where.status = status;
+    } else {
+      where.status = 'OPEN'; // Default to open tasks
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const tasks = await prisma.volunteerTask.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
     });
 
-    return resource;
+    return tasks;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get unique projects and metadata for filters
+fastify.get('/community/volunteer/meta', async (request, reply) => {
+  try {
+    const tasks = await prisma.volunteerTask.findMany({
+      select: { project: true }
+    });
+
+    const uniqueProjects = [...new Set(tasks.map(t => t.project).filter(Boolean))];
+
+    // Get some basic impact stats for the hero section
+    const [totalTasks, totalHours] = await Promise.all([
+      prisma.volunteerTask.count({ where: { status: 'OPEN' } }),
+      prisma.volunteerTask.aggregate({
+        _sum: { hours: true },
+        where: { status: 'COMPLETED' }
+      })
+    ]);
+
+    return {
+      projects: uniqueProjects,
+      stats: {
+        openOpportunities: totalTasks,
+        completedHours: totalHours._sum.hours || 0,
+        activeVolunteers: await prisma.volunteer.count()
+      }
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// --- Announcement Discovery API ---
+
+// Get all announcements with optional filtering by type
+fastify.get('/community/announcements', async (request, reply) => {
+  const { type } = request.query;
+  try {
+    const where = {};
+    if (type && type !== 'all') {
+      where.type = type;
+    }
+
+    const announcements = await prisma.announcement.findMany({
+      where,
+      orderBy: [
+        { priority: 'desc' }, // Order by priority (mapped in the frontend)
+        { publishedAt: 'desc' }
+      ],
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            profile: {
+              select: { avatar: true }
+            }
+          }
+        }
+      }
+    });
+
+    return announcements;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// --- Network Connect API ---
+
+// Get paginated network directory with filtering
+fastify.get('/community/network', async (request, reply) => {
+  const { role, skill, search, page = 1, limit = 12 } = request.query;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  
+  try {
+    const where = {};
+    const userWhere = {};
+    
+    if (role && role !== 'all') {
+      userWhere.role = role;
+    }
+    
+    if (search) {
+      userWhere.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    
+    if (skill && skill !== 'all') {
+      where.skills = { has: skill };
+    }
+    
+    const [profiles, totalCount] = await Promise.all([
+      prisma.userProfile.findMany({
+        where: {
+          ...where,
+          user: Object.keys(userWhere).length > 0 ? userWhere : undefined
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              role: true
+            }
+          }
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: { impactPoints: 'desc' }
+      }),
+      prisma.userProfile.count({
+        where: {
+          ...where,
+          user: Object.keys(userWhere).length > 0 ? userWhere : undefined
+        }
+      })
+    ]);
+
+    return {
+      profiles,
+      meta: {
+        totalCount,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / parseInt(limit))
+      }
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get metadata for frontend filters
+fastify.get('/community/network/meta', async (request, reply) => {
+  try {
+    const profiles = await prisma.userProfile.findMany({
+      select: { skills: true }
+    });
+    
+    const allSkills = profiles.flatMap(p => p.skills);
+    const uniqueSkills = [...new Set(allSkills)].sort();
+    
+    // Hardcoded roles for now based on schema
+    const roles = ['COMMUNITY_MEMBER', 'BUSINESS', 'LEARNER', 'VOLUNTEER', 'ADMIN', 'MODERATOR'];
+    
+    return {
+      skills: uniqueSkills,
+      roles: roles
+    };
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });

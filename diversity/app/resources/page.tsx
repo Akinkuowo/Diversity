@@ -76,6 +76,28 @@ export default function ResourcesPage() {
         }
     }
 
+    const handleAccess = async (resource: any) => {
+        try {
+            // Increment view count on backend
+            await api.get(`/resources/${resource.id}`)
+
+            // If it's a PDF or external link, open it
+            if (resource.contentUrl) {
+                window.open(resource.contentUrl, '_blank')
+            } else {
+                toast.info('Resource is being prepared for digital access.')
+            }
+
+            // Update local state to reflect new view count immediately
+            setResources(prev => prev.map(r =>
+                r.id === resource.id ? { ...r, views: r.views + 1 } : r
+            ))
+        } catch (err) {
+            console.error('Failed to access resource', err)
+            // toast.error('Could not access this resource at the moment.')
+        }
+    }
+
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
@@ -202,7 +224,11 @@ export default function ResourcesPage() {
                                                         {resource.downloads}
                                                     </div>
                                                 </div>
-                                                <Button size="sm" className="rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold hover:scale-105 transition-transform">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => handleAccess(resource)}
+                                                    className="rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold hover:scale-105 transition-transform"
+                                                >
                                                     Access
                                                     <ArrowRight className="w-4 h-4 ml-2" />
                                                 </Button>
