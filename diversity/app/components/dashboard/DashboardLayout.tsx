@@ -232,7 +232,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Achievements', href: '/volunteer/achievements', icon: Trophy },
             { name: 'Events', href: '/events', icon: Calendar },
             { name: 'Training', href: '/volunteer/training', icon: BookOpen },
-            { name: 'Jobs', href: '/employment', icon: Briefcase },
+            { name: 'Jobs', href: '/volunteer/employment', icon: Briefcase },
             { name: 'Community', href: '/volunteer/community', icon: Users2 },
             { name: 'Resources', href: '/resources', icon: BookOpen },
             { name: 'Billing', href: '/billing', icon: CreditCard },

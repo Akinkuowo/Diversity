@@ -2417,6 +2417,32 @@ fastify.get('/businesses/me/applications', async (request, reply) => {
   }
 });
 
+// GET Volunteer Job Applications (Volunteer Only)
+fastify.get('/volunteers/me/applications', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const applications = await prisma.employmentApplication.findMany({
+      where: { userId: decoded.userId },
+      include: {
+        notice: {
+          include: { 
+            business: {
+              select: { companyName: true, logo: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return applications;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch applications' });
+  }
+});
+
 // PATCH Update Application Status (Hire Flow)
 fastify.patch('/applications/:id', async (request, reply) => {
   const decoded = authenticate(request, reply);
@@ -2647,6 +2673,477 @@ fastify.get('/businesses/me/training-stats', async (request, reply) => {
   }
 });
 
+// GET Available Public Courses for Volunteers
+fastify.get('/volunteers/me/courses', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const courses = await prisma.course.findMany({
+      where: { 
+        type: 'PUBLIC',
+        isPublished: true 
+      },
+      include: {
+        _count: {
+          select: { modules: true, enrollments: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return courses;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch courses' });
+  }
+});
+
+// GET Volunteer Enrollments
+fastify.get('/volunteers/me/enrollments', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId: decoded.userId },
+      include: {
+        course: {
+          include: {
+            _count: { select: { modules: true } }
+          }
+        }
+      },
+      orderBy: { enrolledAt: 'desc' }
+    });
+    return enrollments;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch enrollments' });
+  }
+});
+
+// POST Enroll in a Course
+fastify.post('/volunteers/me/enroll/:courseId', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { courseId } = request.params;
+
+  try {
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) return reply.code(404).send({ message: 'Course not found' });
+
+    // Check if already enrolled
+    const existing = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: decoded.userId, courseId: courseId } }
+    });
+    if (existing) return reply.code(400).send({ message: 'Already enrolled in this course' });
+
+    const enrollment = await prisma.enrollment.create({
+      data: {
+        userId: decoded.userId,
+        courseId: courseId,
+        progress: 0
+      },
+      include: { course: true }
+    });
+
+    // Notify user
+    await prisma.notification.create({
+      data: {
+        userId: decoded.userId,
+        title: 'Successfully Enrolled! 📚',
+        message: `You've enrolled in "${course.title}". Start learning now!`,
+        type: 'info',
+        link: `/volunteer/training`
+      }
+    });
+
+    return enrollment;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to enroll in course' });
+  }
+});
+
+// GET Available Public Courses for Learners
+fastify.get('/learners/me/courses', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const courses = await prisma.course.findMany({
+      where: { 
+        type: 'PUBLIC',
+        isPublished: true 
+      },
+      include: {
+        _count: {
+          select: { modules: true, enrollments: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return courses;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch courses' });
+  }
+});
+
+// GET Learner Enrollments
+fastify.get('/learners/me/enrollments', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId: decoded.userId },
+      include: {
+        course: {
+          include: {
+            _count: { select: { modules: true } }
+          }
+        }
+      },
+      orderBy: { enrolledAt: 'desc' }
+    });
+    return enrollments;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch enrollments' });
+  }
+});
+
+// GET Learner Certificates
+fastify.get('/learners/me/certificates', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const certificates = await prisma.certificate.findMany({
+      where: { userId: decoded.userId },
+      include: {
+        course: {
+          select: {
+            title: true,
+            thumbnail: true,
+            authorBusiness: {
+              select: {
+                companyName: true,
+                logo: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { issuedAt: 'desc' }
+    });
+    return certificates;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch certificates' });
+  }
+});
+
+// GET Learner Quizzes
+fastify.get('/learners/me/quizzes', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId: decoded.userId },
+      select: { courseId: true }
+    });
+
+    const courseIds = enrollments.map(e => e.courseId);
+
+    const quizzes = await prisma.quiz.findMany({
+      where: { courseId: { in: courseIds } },
+      include: {
+        course: { select: { title: true } },
+        questions: {
+          select: {
+            id: true,
+            question: true,
+            type: true,
+            options: true,
+            order: true
+          }
+        },
+        results: {
+          where: { userId: decoded.userId },
+          orderBy: { score: 'desc' },
+          take: 1
+        }
+      }
+    });
+
+    return quizzes;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch quizzes' });
+  }
+});
+
+// POST Submit Quiz Result
+fastify.post('/quizzes/:id/submit', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { answers, startedAt } = request.body;
+
+  try {
+    const quiz = await prisma.quiz.findUnique({
+      where: { id },
+      include: { questions: true }
+    });
+
+    if (!quiz) return reply.code(404).send({ message: 'Quiz not found' });
+
+    let score = 0;
+    const totalPoints = quiz.questions.reduce((acc, q) => acc + q.points, 0);
+
+    quiz.questions.forEach(q => {
+      const userAnswer = answers[q.id];
+      if (userAnswer === q.correctAnswer) {
+        score += q.points;
+      }
+    });
+
+    const scorePercentage = Math.round((score / totalPoints) * 100);
+    const passed = scorePercentage >= quiz.passingScore;
+
+    const result = await prisma.quizResult.create({
+      data: {
+        quizId: id,
+        userId: decoded.userId,
+        score: scorePercentage,
+        passed,
+        startedAt: new Date(startedAt),
+        completedAt: new Date(),
+        answers: answers
+      }
+    });
+
+    return result;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to submit quiz result' });
+  }
+});
+
+// GET Learner Progress Aggregated Data
+fastify.get('/learners/me/progress', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const userId = decoded.userId;
+
+    const [enrollments, certificates, quizResults] = await Promise.all([
+      prisma.enrollment.findMany({
+        where: { userId },
+        include: { course: { select: { category: true, cpdHours: true } } }
+      }),
+      prisma.certificate.count({ where: { userId } }),
+      prisma.quizResult.findMany({
+        where: { userId },
+        orderBy: { score: 'desc' }
+      })
+    ]);
+
+    const totalCourses = enrollments.length;
+    const completedCourses = enrollments.filter(e => e.progress === 100).length;
+    const totalCpdHours = enrollments.reduce((acc, e) => acc + (e.course.cpdHours || 0), 0);
+    const avgQuizScore = quizResults.length > 0 
+      ? Math.round(quizResults.reduce((acc, r) => acc + r.score, 0) / quizResults.length) 
+      : 0;
+
+    // Aggregate by category
+    const categoryStats = enrollments.reduce((acc, e) => {
+      const cat = e.course.category || 'Uncategorized';
+      if (!acc[cat]) acc[cat] = 0;
+      acc[cat]++;
+      return acc;
+    }, {});
+
+    return {
+      stats: {
+        totalCourses,
+        completedCourses,
+        totalCpdHours,
+        certificatesEarned: certificates,
+        avgQuizScore
+      },
+      categoryStats: Object.entries(categoryStats).map(([name, value]) => ({ name, value })),
+      recentActivity: quizResults.slice(0, 5) // Last 5 quiz attempts
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch progress data' });
+  }
+});
+
+// POST Enroll in a Course (Learner)
+fastify.post('/learners/me/enroll/:courseId', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { courseId } = request.params;
+
+  try {
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) return reply.code(404).send({ message: 'Course not found' });
+
+    // Check if already enrolled
+    const existing = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: decoded.userId, courseId: courseId } }
+    });
+    if (existing) return reply.code(400).send({ message: 'Already enrolled in this course' });
+
+    const enrollment = await prisma.enrollment.create({
+      data: {
+        userId: decoded.userId,
+        courseId: courseId,
+        progress: 0
+      },
+      include: { course: true }
+    });
+
+    // Notify user
+    await prisma.notification.create({
+      data: {
+        userId: decoded.userId,
+        title: 'Successfully Enrolled! 📚',
+        message: `You've enrolled in "${course.title}". Start learning now!`,
+        type: 'info',
+        link: `/learner/courses`
+      }
+    });
+
+    return enrollment;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to enroll in course' });
+  }
+});
+
+// GET Course Details (Curriculum)
+fastify.get('/courses/:id', async (request, reply) => {
+  const { id } = request.params;
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const course = await prisma.course.findUnique({
+      where: { id },
+      include: {
+        modules: {
+          orderBy: { order: 'asc' },
+          include: {
+            lessons: {
+              orderBy: { order: 'asc' },
+              include: {
+                completions: {
+                  where: { userId: decoded.userId }
+                }
+              }
+            }
+          }
+        },
+        authorBusiness: {
+          select: { companyName: true, logo: true }
+        }
+      }
+    });
+
+    if (!course) return reply.code(404).send({ message: 'Course not found' });
+    return course;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch course details' });
+  }
+});
+
+// POST Mark Lesson as Completed
+fastify.post('/lessons/:id/complete', async (request, reply) => {
+  const { id } = request.params;
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const lesson = await prisma.lesson.findUnique({
+      where: { id },
+      include: { module: true }
+    });
+
+    if (!lesson) return reply.code(404).send({ message: 'Lesson not found' });
+
+    // Record completion
+    await prisma.lessonCompletion.upsert({
+      where: {
+        lessonId_userId: {
+          lessonId: id,
+          userId: decoded.userId
+        }
+      },
+      update: {
+        completed: true,
+        completedAt: new Date()
+      },
+      create: {
+        lessonId: id,
+        userId: decoded.userId,
+        completed: true,
+        completedAt: new Date()
+      }
+    });
+
+    // Update Overall Course Progress
+    const enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId: decoded.userId,
+          courseId: lesson.module.courseId
+        }
+      }
+    });
+
+    if (enrollment) {
+      // Calculate new progress
+      const totalLessons = await prisma.lesson.count({
+        where: { module: { courseId: lesson.module.courseId } }
+      });
+      
+      const completedLessons = await prisma.lessonCompletion.count({
+        where: { 
+          userId: decoded.userId,
+          completed: true,
+          lesson: { module: { courseId: lesson.module.courseId } }
+        }
+      });
+
+      const progress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
+      await prisma.enrollment.update({
+        where: { id: enrollment.id },
+        data: { 
+          progress,
+          completedAt: progress === 100 ? new Date() : enrollment.completedAt
+        }
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to complete lesson' });
+  }
+});
+
 // --- Business Volunteering API ---
 
 // GET All Volunteer Tasks posted by this business
@@ -2729,6 +3226,298 @@ fastify.get('/volunteer-tasks/:id/volunteers', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Failed to fetch volunteers' });
+  }
+});
+
+// PATCH Accept or Decline a volunteer assignment
+fastify.patch('/volunteer-assignments/:id/respond', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { action } = request.body; // 'ACCEPTED' | 'DECLINED'
+
+  if (!['ACCEPTED', 'DECLINED'].includes(action)) {
+    return reply.code(400).send({ message: 'action must be ACCEPTED or DECLINED' });
+  }
+
+  try {
+    const business = await prisma.business.findUnique({ where: { userId: decoded.userId } });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    // Verify assignment belongs to this business
+    const assignment = await prisma.volunteerAssignment.findFirst({
+      where: { id },
+      include: {
+        task: true,
+        volunteer: { include: { user: true } }
+      }
+    });
+
+    if (!assignment || assignment.task.businessId !== business.id) {
+      return reply.code(404).send({ message: 'Assignment not found' });
+    }
+
+    const updated = await prisma.volunteerAssignment.update({
+      where: { id },
+      data: { status: action }
+    });
+
+    // Notify the volunteer
+    await prisma.notification.create({
+      data: {
+        userId: assignment.volunteer.user.id,
+        title: action === 'ACCEPTED' ? 'Your Interest Was Accepted! 🎉' : 'Application Update',
+        message: action === 'ACCEPTED'
+          ? `Great news! Your interest in "${assignment.task.title}" has been accepted.`
+          : `Your interest in "${assignment.task.title}" was not selected this time.`,
+        type: 'info',
+        link: '/volunteer/tasks'
+      }
+    });
+
+    return updated;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update assignment' });
+  }
+});
+
+// PATCH Assign a duty to an accepted volunteer
+fastify.patch('/volunteer-assignments/:id/duty', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { duty } = request.body;
+
+  if (!duty || !duty.trim()) {
+    return reply.code(400).send({ message: 'Duty description is required' });
+  }
+
+  try {
+    const business = await prisma.business.findUnique({ where: { userId: decoded.userId } });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const assignment = await prisma.volunteerAssignment.findFirst({
+      where: { id },
+      include: {
+        task: true,
+        volunteer: { include: { user: true } }
+      }
+    });
+
+    if (!assignment || assignment.task.businessId !== business.id) {
+      return reply.code(404).send({ message: 'Assignment not found' });
+    }
+
+    if (assignment.status !== 'ACCEPTED') {
+      return reply.code(400).send({ message: 'Can only assign duties to accepted volunteers' });
+    }
+
+    const updated = await prisma.volunteerAssignment.update({
+      where: { id },
+      data: { duty: duty.trim(), status: 'IN_PROGRESS' }
+    });
+
+    // Notify the volunteer about their duty
+    await prisma.notification.create({
+      data: {
+        userId: assignment.volunteer.user.id,
+        title: 'Duty Assigned',
+        message: `You've been assigned a duty for "${assignment.task.title}": ${duty.trim()}`,
+        type: 'info',
+        link: '/volunteer/tasks'
+      }
+    });
+
+    return updated;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to assign duty' });
+  }
+});
+
+// PATCH Volunteer marks task as complete (requests confirmation)
+fastify.patch('/volunteer-assignments/:id/request-complete', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const volunteer = await prisma.volunteer.findUnique({ where: { userId: decoded.userId } });
+    if (!volunteer) return reply.code(403).send({ message: 'No volunteer profile found' });
+
+    const assignment = await prisma.volunteerAssignment.findFirst({
+      where: { id, volunteerId: volunteer.id },
+      include: {
+        task: {
+          include: { business: { include: { user: true } } }
+        }
+      }
+    });
+
+    if (!assignment) return reply.code(404).send({ message: 'Assignment not found' });
+    if (!['IN_PROGRESS', 'ACCEPTED'].includes(assignment.status)) {
+      return reply.code(400).send({ message: 'Only in-progress tasks can be marked as complete' });
+    }
+
+    const updated = await prisma.volunteerAssignment.update({
+      where: { id },
+      data: { status: 'PENDING_COMPLETION' }
+    });
+
+    // Notify the business
+    if (assignment.task.business?.user?.id) {
+      await prisma.notification.create({
+        data: {
+          userId: assignment.task.business.user.id,
+          title: 'Task Completion Requested ✅',
+          message: `A volunteer has marked "${assignment.task.title}" as complete and is awaiting your confirmation.`,
+          type: 'info',
+          link: '/business/volunteering'
+        }
+      });
+    }
+
+    return updated;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to request completion' });
+  }
+});
+
+// PATCH Business confirms volunteer task completion
+fastify.patch('/volunteer-assignments/:id/confirm-complete', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const business = await prisma.business.findUnique({ where: { userId: decoded.userId } });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const assignment = await prisma.volunteerAssignment.findFirst({
+      where: { id },
+      include: {
+        task: true,
+        volunteer: { include: { user: true } }
+      }
+    });
+
+    if (!assignment || assignment.task.businessId !== business.id) {
+      return reply.code(404).send({ message: 'Assignment not found' });
+    }
+    if (assignment.status !== 'PENDING_COMPLETION') {
+      return reply.code(400).send({ message: 'Task is not awaiting confirmation' });
+    }
+
+    const updated = await prisma.volunteerAssignment.update({
+      where: { id },
+      data: { status: 'COMPLETED', completedAt: new Date() }
+    });
+
+    // Notify the volunteer
+    await prisma.notification.create({
+      data: {
+        userId: assignment.volunteer.user.id,
+        title: 'Task Completed & Verified 🎉',
+        message: `Your completion of "${assignment.task.title}" has been confirmed by the organization. Great work!`,
+        type: 'info',
+        link: '/volunteer/tasks'
+      }
+    });
+
+    return updated;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to confirm completion' });
+  }
+});
+
+// GET Volunteer Hours for current user
+fastify.get('/volunteers/me/hours', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const volunteer = await prisma.volunteer.findUnique({ where: { userId: decoded.userId } });
+    if (!volunteer) return reply.code(403).send({ message: 'No volunteer profile found' });
+
+    const hours = await prisma.volunteerHour.findMany({
+      where: { volunteerId: volunteer.id },
+      include: {
+        task: {
+          include: { business: true }
+        }
+      },
+      orderBy: { date: 'desc' }
+    });
+
+    return hours;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch volunteer hours' });
+  }
+});
+
+// POST Log Volunteer Hours
+fastify.post('/volunteers/me/hours', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { taskId, hours, date, notes } = request.body;
+
+  if (!hours || isNaN(hours)) {
+    return reply.code(400).send({ message: 'Valid hours must be provided' });
+  }
+
+  try {
+    const volunteer = await prisma.volunteer.findUnique({ where: { userId: decoded.userId } });
+    if (!volunteer) return reply.code(403).send({ message: 'No volunteer profile found' });
+
+    const loggedHour = await prisma.volunteerHour.create({
+      data: {
+        volunteerId: volunteer.id,
+        taskId: taskId || null,
+        hours: parseInt(hours),
+        date: date ? new Date(date) : new Date(),
+        notes,
+        verified: false
+      },
+      include: {
+        task: {
+          include: { business: true }
+        }
+      }
+    });
+
+    // Notify business if task is associated
+    if (taskId) {
+        const task = await prisma.volunteerTask.findUnique({
+            where: { id: taskId },
+            include: { business: { include: { user: true } } }
+        });
+        
+        if (task?.business?.user?.id) {
+            await prisma.notification.create({
+                data: {
+                    userId: task.business.user.id,
+                    title: 'New Volunteer Hours Logged',
+                    message: `${decoded.firstName} ${decoded.lastName} logged ${hours} hours for "${task.title}".`,
+                    type: 'info',
+                    link: '/business/volunteering'
+                }
+            });
+        }
+    }
+
+    return loggedHour;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to log volunteer hours' });
   }
 });
 

@@ -281,6 +281,8 @@ model LessonCompletion {
   createdAt   DateTime  @default(now())
   lesson      Lesson    @relation(fields: [lessonId], references: [id])
   user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([lessonId, userId])
 }
 
 model Enrollment {
@@ -443,6 +445,7 @@ model VolunteerAssignment {
   assignedAt  DateTime         @default(now())
   completedAt DateTime?
   status      AssignmentStatus @default(ASSIGNED)
+  duty        String?          // Assigned role/duty by the business
   task        VolunteerTask    @relation(fields: [taskId], references: [id])
   volunteer   Volunteer        @relation(fields: [volunteerId], references: [id])
 }
@@ -748,7 +751,10 @@ enum TaskStatus {
 
 enum AssignmentStatus {
   ASSIGNED
+  ACCEPTED
+  DECLINED
   IN_PROGRESS
+  PENDING_COMPLETION
   COMPLETED
   CANCELLED
 }

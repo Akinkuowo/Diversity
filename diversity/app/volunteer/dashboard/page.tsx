@@ -38,10 +38,13 @@ import {
     Sparkles,
     Share2,
     Bookmark,
-    Bell
+    Bell,
+    GraduationCap,
+    Briefcase
 } from 'lucide-react'
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
+import { api } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
@@ -229,8 +232,29 @@ export default function VolunteerDashboard() {
     const router = useRouter()
     const [selectedView, setSelectedView] = useState('upcoming')
     const [userName, setUserName] = useState('Volunteer')
+    const [realStats, setRealStats] = useState({ totalHours: 0, completedTasks: 0, enrollments: 0 })
 
     useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [hoursData, tasksData, enrollmentsData] = await Promise.all([
+                    api.get('/volunteers/me/hours'),
+                    api.get('/volunteers/me/tasks'),
+                    api.get('/volunteers/me/enrollments')
+                ])
+                const total = hoursData.reduce((acc: number, curr: any) => acc + curr.hours, 0)
+                const completed = tasksData.filter((a: any) => a.status === 'COMPLETED').length
+                setRealStats({ 
+                    totalHours: total, 
+                    completedTasks: completed,
+                    enrollments: enrollmentsData.length
+                })
+            } catch (err) {
+                console.error('Failed to fetch dashboard stats:', err)
+            }
+        }
+        fetchData()
+
         const user = localStorage.getItem('user')
         if (user) {
             try {
@@ -287,7 +311,7 @@ export default function VolunteerDashboard() {
                                     </div>
                                 </div>
                             </div>
-                            <Button variant="secondary" className="bg-white text-green-600 hover:bg-gray-100">
+                            <Button variant="secondary" className="bg-white text-green-600 hover:bg-gray-100" onClick={() => router.push('/volunteer/hours')}>
                                 View Progress
                             </Button>
                         </div>
@@ -315,13 +339,57 @@ export default function VolunteerDashboard() {
                                                 {stat.change}
                                             </Badge>
                                         </div>
-                                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</h3>
+                                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                            {stat.title === 'Total Hours' ? realStats.totalHours : 
+                                             stat.title === 'Tasks Completed' ? realStats.completedTasks : 
+                                             stat.value}
+                                        </h3>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">{stat.title}</p>
                                     </CardContent>
                                 </Card>
                             </motion.div>
                         )
                     })}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                    >
+                        <Card className="cursor-pointer hover:shadow-lg transition-all border-none bg-gradient-to-br from-indigo-500 to-indigo-600 text-white" onClick={() => router.push('/volunteer/training')}>
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <GraduationCap className="w-6 h-6 text-white" />
+                                    </div>
+                                    <Badge variant="secondary" className="bg-white/20 text-white border-none">
+                                        Academy
+                                    </Badge>
+                                </div>
+                                <h3 className="text-2xl font-bold">{realStats.enrollments}</h3>
+                                <p className="text-sm opacity-90 text-white">Active Courses</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                    >
+                        <Card className="cursor-pointer hover:shadow-lg transition-all border-none bg-gradient-to-br from-emerald-500 to-emerald-600 text-white" onClick={() => router.push('/volunteer/employment')}>
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <Briefcase className="w-6 h-6 text-white" />
+                                    </div>
+                                    <Badge variant="secondary" className="bg-white/20 text-white border-none">
+                                        Careers
+                                    </Badge>
+                                </div>
+                                <h3 className="text-2xl font-bold">New Postings</h3>
+                                <p className="text-sm opacity-90 text-white">Browse Job Board</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
                 </div>
 
                 {/* Main Content */}
@@ -384,7 +452,7 @@ export default function VolunteerDashboard() {
                                         <CardTitle>Recent Activity</CardTitle>
                                         <CardDescription>Your completed volunteer work</CardDescription>
                                     </div>
-                                    <Button variant="ghost" size="sm">Log Hours</Button>
+                                    <Button variant="ghost" size="sm" onClick={() => router.push('/volunteer/hours')}>Log Hours</Button>
                                 </div>
                             </CardHeader>
                             <CardContent>
