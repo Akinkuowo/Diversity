@@ -56,8 +56,10 @@ import {
     Linkedin,
     Twitter,
     Github,
-    Instagram
+    Instagram,
+    MessageSquare
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '../../../components/ui/badge'
@@ -108,6 +110,20 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     const [user, setUser] = useState<any>(null)
     const [notifications, setNotifications] = useState<any[]>([])
 
+    // Fetch User Data from backend to ensure it's up to date
+    const fetchUser = async () => {
+        try {
+            const userData = await api.get('/me')
+            setUser(userData)
+            localStorage.setItem('user', JSON.stringify(userData))
+        } catch (error) {
+            console.error('DashboardLayout: Failed to fetch user:', error)
+            if ((error as any).response?.status === 401) {
+                router.push('/login')
+            }
+        }
+    }
+
     useEffect(() => {
         // Initialize user from localStorage
         const savedUser = localStorage.getItem('user')
@@ -124,24 +140,6 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
         }
         window.addEventListener('scroll', handleScroll)
 
-        // Fetch User Data from backend to ensure it's up to date
-        const fetchUser = async () => {
-            console.log('DashboardLayout: Fetching user data from /me...');
-            try {
-                const userData = await api.get('/me')
-                console.log('DashboardLayout: User data received:', userData);
-                setUser(userData)
-                // Update localStorage with fresh data
-                localStorage.setItem('user', JSON.stringify(userData))
-            } catch (error) {
-                console.error('DashboardLayout: Failed to fetch user:', error)
-                // If unauthorized, redirect to login
-                if ((error as any).response?.status === 401) {
-                    console.log('DashboardLayout: Unauthorized, redirecting to login');
-                    router.push('/login')
-                }
-            }
-        }
         fetchUser()
 
         // Fetch Notifications
@@ -164,6 +162,27 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
         } catch (error) {
             console.error('Failed to mark notification as read:', error)
+        }
+    }
+
+    const handleConnectionResponse = async (notificationId: string, requesterId: string, action: 'accept' | 'decline') => {
+        try {
+            await api.post('/notifications/connection/respond', { notificationId, action, requesterId })
+            toast({
+                title: action === 'accept' ? 'Connection accepted' : 'Connection declined',
+                description: action === 'accept' ? 'You are now connected!' : 'The request has been removed.',
+            })
+            // Refresh notifications and user data
+            const data = await api.get('/notifications')
+            setNotifications(data)
+            await fetchUser()
+        } catch (error) {
+            console.error('Failed to respond to connection request:', error)
+            toast({
+                title: 'Error',
+                description: 'Failed to process request. Please try again.',
+                variant: 'destructive'
+            })
         }
     }
 
@@ -311,19 +330,97 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                         notifications.slice(0, 5).map((notification) => (
                                             <DropdownMenuItem
                                                 key={notification.id}
-                                                className="cursor-pointer"
-                                                onClick={() => markAsRead(notification.id)}
+                                                className={cn(
+                                                    "flex flex-col items-start gap-2 p-4 cursor-pointer",
+                                                    !notification.read && "bg-slate-50 dark:bg-slate-900/50"
+                                                )}
+                                                onClick={() => {
+                                                    if (notification.type === 'new_message' || !notification.type) {
+                                                        markAsRead(notification.id)
+                                                        if (notification.link) router.push(notification.link)
+                                                    }
+                                                }}
                                             >
-                                                <div className="flex flex-col gap-1">
-                                                    <p className={`text-sm ${notification.read ? 'text-gray-600' : 'font-semibold'}`}>
-                                                        {notification.title}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        {new Date(notification.createdAt).toLocaleString()}
-                                                    </p>
+                                                <div className="flex justify-between w-full">
+                                                    <div className="flex flex-col gap-1 pr-4">
+                                                        <p className={cn(
+                                                            "text-[13px] leading-tight",
+                                                            notification.read ? "text-slate-500 font-medium" : "text-slate-900 dark:text-white font-bold"
+                                                        )}>
+                                                            {notification.title}
+                                                        </p>
+                                                        <p className="text-[12px] text-slate-400">
+                                                            {new Date(notification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(notification.createdAt).toLocaleDateString()}
+                                                        </p>
+                                                    </div>
+                                                    {!notification.read && (
+                                                        <div className="w-2 h-2 rounded-full bg-primary-500 mt-1" />
+                                                    )}
                                                 </div>
-                                                {!notification.read && (
-                                                    <Badge className="ml-auto" variant="default">New</Badge>
+
+                                                {notification.type === 'connection_request' && !notification.read && (
+                                                    <div className="flex gap-2 w-full mt-2">
+                                                        <Button 
+                                                            size="sm" 
+                                                            className="h-8 flex-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-bold"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                // Extract requesterId from link /community/network?requesterId=...
+                                                                const requesterId = notification.link?.split('=')[1]
+                                                                if (requesterId) handleConnectionResponse(notification.id, requesterId, 'accept')
+                                                            }}
+                                                        >
+                                                            Accept
+                                                        </Button>
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="outline"
+                                                            className="h-8 flex-1 border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                const requesterId = notification.link?.split('=')[1]
+                                                                if (requesterId) handleConnectionResponse(notification.id, requesterId, 'decline')
+                                                            }}
+                                                        >
+                                                            Decline
+                                                        </Button>
+                                                    </div>
+                                                )}
+
+                                                {notification.type === 'new_message' && (
+                                                    <div className="mt-2 w-full">
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
+                                                            className="h-8 w-full justify-start px-0 text-primary-600 hover:text-primary-700 font-bold text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                markAsRead(notification.id)
+                                                                router.push('/messages')
+                                                            }}
+                                                        >
+                                                            <MessageSquare className="w-3 h-3 mr-2" />
+                                                            Open Messages
+                                                        </Button>
+                                                    </div>
+                                                )}
+
+                                                {(notification.type === 'like' || notification.type === 'comment') && (
+                                                    <div className="mt-2 w-full">
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="ghost" 
+                                                            className="h-8 w-full justify-start px-0 text-primary-600 hover:text-primary-700 font-bold text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                markAsRead(notification.id)
+                                                                if (notification.link) router.push(notification.link)
+                                                            }}
+                                                        >
+                                                            {notification.type === 'like' ? <Heart className="w-3 h-3 mr-2" /> : <MessageCircle className="w-3 h-3 mr-2" />}
+                                                            View Post
+                                                        </Button>
+                                                    </div>
                                                 )}
                                             </DropdownMenuItem>
                                         ))
@@ -489,3 +586,4 @@ function MobileSidebar({ navigation, role, onClose }: { navigation: any[]; role:
         </div>
     )
 }
+export default DashboardLayout;

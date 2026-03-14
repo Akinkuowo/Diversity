@@ -24,7 +24,7 @@ export default function VerifyTokenPage() {
 
     const verifyEmail = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/verify?token=${token}`)
+        const response = await fetch(`http://localhost:3001/verify?token=${token}`)
         const data = await response.json()
 
         if (response.ok) {

@@ -48,6 +48,25 @@ model User {
   volunteer              Volunteer?
   notificationPrefs      NotificationPreferences?
   sessions               UserSession[]
+  conversations          Conversation[]          @relation("ConversationParticipants")
+  messagesSent           Message[]
+  
+  connectionsRequested   Connection[]            @relation("Requester")
+  connectionsReceived    Connection[]            @relation("Recipient")
+}
+
+model Connection {
+  id          String   @id @default(cuid())
+  requesterId String
+  recipientId String
+  status      String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester   User     @relation("Requester", fields: [requesterId], references: [id])
+  recipient   User     @relation("Recipient", fields: [recipientId], references: [id])
+
+  @@unique([requesterId, recipientId])
 }
 
 model UserSession {
@@ -588,6 +607,27 @@ model AuditLog {
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  participants  User[]    @relation("ConversationParticipants")
+  messages      Message[]
+  lastMessageAt DateTime  @default(now())
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  content        String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  senderId       String
+  conversationId String
+  readBy         String[]     @default([])
+  sender         User         @relation(fields: [senderId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
 model Learner {

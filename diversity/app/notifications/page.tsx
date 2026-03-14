@@ -16,7 +16,7 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-react'
-import { DashboardLayout } from '../components/dashboard/layout'
+import { DashboardLayout } from '../components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'

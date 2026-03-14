@@ -17,7 +17,7 @@ import {
     CheckCircle,
     Users
 } from 'lucide-react'
-import { DashboardLayout } from '../components/dashboard/layout'
+import { DashboardLayout } from '../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'

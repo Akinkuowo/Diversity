@@ -55,7 +55,7 @@ import {
   ChevronRight,
   ArrowRight,
 } from 'lucide-react'
-import { DashboardLayout } from '../../components/dashboard/layout'
+import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { CreatePostDialog } from '../../components/dashboard/community/create-post-dialog'
 import { api } from '@/lib/api'
 import { Input } from '@/components/ui/input'
@@ -487,21 +487,44 @@ export default function CommunityDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
+                {...(stat.title === 'Connections' ? { 
+                  whileHover: { scale: 1.02 },
+                  whileTap: { scale: 0.98 }
+                } : {})}
               >
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
-                        <Icon className="w-6 h-6 text-white" />
+                {stat.title === 'Connections' ? (
+                  <Link href="/community/connections" className="block cursor-pointer">
+                    <Card className="hover:border-primary-500/50 transition-colors bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20`}>
+                            <Icon className="w-6 h-6 text-white" />
+                          </div>
+                          <Badge variant="secondary" className="bg-green-100 text-green-600 border-none px-2 py-0">
+                            {stat.change}
+                          </Badge>
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white">{stat.value}</h3>
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{stat.title}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ) : (
+                  <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center shadow-lg`}>
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-none px-2 py-0">
+                          {stat.change}
+                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="bg-green-100 text-green-600">
-                        {stat.change}
-                      </Badge>
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{stat.title}</p>
-                  </CardContent>
-                </Card>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">{stat.value}</h3>
+                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{stat.title}</p>
+                    </CardContent>
+                  </Card>
+                )}
               </motion.div>
             )
           })}

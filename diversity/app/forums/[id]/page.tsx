@@ -16,7 +16,7 @@ import {
     Award,
     ShieldCheck
 } from 'lucide-react'
-import { DashboardLayout } from '../../components/dashboard/layout'
+import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

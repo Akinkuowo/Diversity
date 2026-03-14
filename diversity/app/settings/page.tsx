@@ -14,7 +14,7 @@ import {
     Monitor,
     LogOut
 } from 'lucide-react'
-import { DashboardLayout } from '../components/dashboard/layout'
+import { DashboardLayout } from '../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

@@ -281,7 +281,10 @@ fastify.post('/register', async (request, reply) => {
         firstName,
         lastName,
         role: role || 'COMMUNITY_MEMBER',
-        verificationToken
+        verificationToken,
+        profile: {
+          create: {}
+        }
       }
     });
 
@@ -427,7 +430,8 @@ fastify.get('/me', async (request, reply) => {
         profile: {
           select: {
             avatar: true,
-            bio: true
+            bio: true,
+            connections: true
           }
         }
       }
@@ -513,7 +517,145 @@ fastify.post('/notifications/test', async (request, reply) => {
   }
 });
 
-// GET Community Posts
+// POST Send a Connection Request
+fastify.post('/community/network/connect', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  
+  const { recipientId } = request.body;
+  if (!recipientId) return reply.code(400).send({ message: 'recipientId is required' });
+  if (recipientId === decoded.userId) return reply.code(400).send({ message: 'Cannot connect with yourself' });
+
+  try {
+    const sender = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { firstName: true, lastName: true }
+    });
+
+    // Create a connection record with PENDING status
+    const connection = await prisma.connection.upsert({
+      where: {
+        requesterId_recipientId: {
+          requesterId: decoded.userId,
+          recipientId
+        }
+      },
+      update: { status: 'PENDING' },
+      create: {
+        requesterId: decoded.userId,
+        recipientId,
+        status: 'PENDING'
+      }
+    });
+
+    // Create a notification for the recipient
+    const notification = await prisma.notification.create({
+      data: {
+        userId: recipientId,
+        title: `${sender.firstName} ${sender.lastName} wants to connect`,
+        message: `${sender.firstName} ${sender.lastName} sent you a connection request.`,
+        type: 'connection_request',
+        link: `/community/network?requesterId=${decoded.userId}`,
+        read: false
+      }
+    });
+
+    return { message: 'Connection request sent', notification, connection };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// POST Accept or Decline a Connection Request
+fastify.post('/notifications/connection/respond', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  
+  const { notificationId, action, requesterId } = request.body;
+  if (!notificationId || !action || !requesterId) {
+    return reply.code(400).send({ message: 'notificationId, action, and requesterId are required' });
+  }
+  
+  try {
+    // Mark the request notification as read
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: { read: true }
+    });
+
+    if (action === 'accept') {
+      const acceptor = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { firstName: true, lastName: true }
+      });
+
+      // Update the connection status to ACCEPTED (upsert in case it was a legacy request without a record)
+      await prisma.connection.upsert({
+        where: {
+          requesterId_recipientId: {
+            requesterId,
+            recipientId: decoded.userId
+          }
+        },
+        update: { status: 'ACCEPTED' },
+        create: {
+          requesterId,
+          recipientId: decoded.userId,
+          status: 'ACCEPTED'
+        }
+      });
+
+      // Increment connection count for both users in their UserProfile
+      await prisma.userProfile.update({
+        where: { userId: decoded.userId },
+        data: { connections: { increment: 1 } }
+      });
+
+      await prisma.userProfile.update({
+        where: { userId: requesterId },
+        data: { connections: { increment: 1 } }
+      });
+
+      // Notify the original requester that their request was accepted
+      await prisma.notification.create({
+        data: {
+          userId: requesterId,
+          title: `${acceptor.firstName} ${acceptor.lastName} accepted your request`,
+          message: `${acceptor.firstName} ${acceptor.lastName} has accepted your connection request. You are now connected!`,
+          type: 'connection_accepted',
+          link: `/community/network`,
+          read: false
+        }
+      });
+
+      return { message: 'Connection accepted' };
+    }
+
+    if (action === 'decline') {
+      // Update the connection status to DECLINED or delete it
+      await prisma.connection.upsert({
+        where: {
+          requesterId_recipientId: {
+            requesterId,
+            recipientId: decoded.userId
+          }
+        },
+        update: { status: 'DECLINED' },
+        create: {
+          requesterId,
+          recipientId: decoded.userId,
+          status: 'DECLINED'
+        }
+      });
+      return { message: 'Connection declined' };
+    }
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
 fastify.get('/posts', async (request, reply) => {
   // Extract user ID from token if present (for liked status)
   let currentUserId = null;
@@ -869,6 +1011,13 @@ fastify.post('/posts', async (request, reply) => {
         }
       }
     });
+
+    // Award impact points for creating a community post
+    await prisma.userProfile.update({
+      where: { userId: decoded.userId },
+      data: { impactPoints: { increment: 5 } }
+    });
+
     return post;
   } catch (error) {
     fastify.log.error('Prisma Error creating post:', error);
@@ -998,6 +1147,12 @@ fastify.post('/posts/:id/like', async (request, reply) => {
           postId: id
         }
       });
+
+      // Award impact points for liking a community post
+      await prisma.userProfile.update({
+        where: { userId: decoded.userId },
+        data: { impactPoints: { increment: 1 } }
+      });
     }
 
     // Get updated count
@@ -1084,6 +1239,13 @@ fastify.post('/posts/:id/comments', async (request, reply) => {
         }
       }
     });
+
+    // Award impact points for commenting on a community post
+    await prisma.userProfile.update({
+      where: { userId: decoded.userId },
+      data: { impactPoints: { increment: 2 } }
+    });
+
     return comment;
   } catch (error) {
     fastify.log.error(error);
@@ -1422,6 +1584,12 @@ fastify.post('/forum/posts', async (request, reply) => {
       }
     });
 
+    // Award impact points for creating a post
+    await prisma.userProfile.update({
+      where: { userId: authorId },
+      data: { impactPoints: { increment: 5 } }
+    });
+
     return post;
   } catch (error) {
     fastify.log.error(error);
@@ -1457,9 +1625,36 @@ fastify.post('/forum/posts/:id/comments', async (request, reply) => {
             lastName: true,
             profile: { select: { avatar: true } }
           }
+        },
+        post: {
+          select: { authorId: true, title: true }
         }
       }
     });
+
+    // Award impact points for creating a comment
+    await prisma.userProfile.update({
+      where: { userId: authorId },
+      data: { impactPoints: { increment: 2 } }
+    });
+
+    // Notify post author if it's not their own comment
+    if (comment.post.authorId !== authorId) {
+      const prefs = await prisma.notificationPreferences.findUnique({
+        where: { userId: comment.post.authorId }
+      });
+      if (!prefs || prefs.mentionsReplies) {
+        await prisma.notification.create({
+          data: {
+            userId: comment.post.authorId,
+            title: 'New Comment on Your Post',
+            message: `${comment.author.firstName} commented on your post "${comment.post.title}"`,
+            type: 'comment',
+            link: `/forums/${postId}`
+          }
+        });
+      }
+    }
 
     return comment;
   } catch (error) {
@@ -1493,9 +1688,38 @@ fastify.post('/forum/posts/:id/like', async (request, reply) => {
       });
       return { liked: false };
     } else {
-      await prisma.forumLike.create({
-        data: { postId, userId }
+      const newLike = await prisma.forumLike.create({
+        data: { postId, userId },
+        include: {
+          post: { select: { authorId: true, title: true } },
+          user: { select: { firstName: true, lastName: true } }
+        }
       });
+
+      // Award impact points for liking a post
+      await prisma.userProfile.update({
+        where: { userId },
+        data: { impactPoints: { increment: 1 } }
+      });
+
+      // Notify post author if it's not their own like
+      if (newLike.post.authorId !== userId) {
+        const prefs = await prisma.notificationPreferences.findUnique({
+          where: { userId: newLike.post.authorId }
+        });
+        if (!prefs || prefs.mentionsReplies) {
+          await prisma.notification.create({
+            data: {
+              userId: newLike.post.authorId,
+              title: 'New Like on Your Post',
+              message: `${newLike.user.firstName} liked your post "${newLike.post.title}"`,
+              type: 'like',
+              link: `/forums/${postId}`
+            }
+          });
+        }
+      }
+
       return { liked: true };
     }
   } catch (error) {
@@ -1706,6 +1930,92 @@ fastify.get('/businesses/:id', async (request, reply) => {
   }
 });
 
+// GET Current Business Profile
+fastify.get('/businesses/me', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId },
+      include: {
+        user: {
+          select: {
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true
+          }
+        }
+      }
+    });
+
+    if (!business) {
+      return reply.code(404).send({ message: 'Business profile not found' });
+    }
+
+    return business;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch business profile' });
+  }
+});
+
+// PUT Update Current Business Profile
+fastify.put('/businesses/me', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const {
+    companyName,
+    companyEmail,
+    companyPhone,
+    website,
+    industry,
+    size,
+    description,
+    logo,
+    address,
+    city,
+    country,
+    diversityCommitment,
+    csrReport
+  } = request.body;
+
+  try {
+    const updatedBusiness = await prisma.business.upsert({
+      where: { userId: decoded.userId },
+      update: {
+        companyName,
+        companyEmail,
+        companyPhone,
+        website,
+        industry,
+        size,
+        description,
+        logo,
+        address,
+        city,
+        country,
+        diversityCommitment,
+        csrReport
+      },
+      create: {
+        userId: decoded.userId,
+        companyName: companyName || 'My Business',
+        companyEmail: companyEmail || decoded.email,
+        industry: industry || 'Other',
+        size: size || '1-10'
+      }
+    });
+
+    return updatedBusiness;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update business profile' });
+  }
+});
+
 // --- Volunteer Discovery API ---
 
 // Get all volunteer tasks with filtering
@@ -1818,6 +2128,16 @@ fastify.get('/community/network', async (request, reply) => {
   const { role, skill, search, page = 1, limit = 12 } = request.query;
   const skip = (parseInt(page) - 1) * parseInt(limit);
   
+  let currentUserId = null;
+  const authHeader = request.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      currentUserId = decoded.userId;
+    } catch (e) { /* ignore invalid token */ }
+  }
+  
   try {
     const where = {};
     const userWhere = {};
@@ -1865,13 +2185,39 @@ fastify.get('/community/network', async (request, reply) => {
       })
     ]);
 
-    return {
-      profiles,
-      meta: {
-        totalCount,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalCount / parseInt(limit))
-      }
+    // If logged in, fetch connection statuses
+    let enhancedProfiles = profiles;
+    if (currentUserId) {
+      const connections = await prisma.connection.findMany({
+        where: {
+          OR: [
+            { requesterId: currentUserId },
+            { recipientId: currentUserId }
+          ]
+        }
+      });
+
+      enhancedProfiles = profiles.map(profile => {
+        const connection = connections.find(c => 
+          (c.requesterId === currentUserId && c.recipientId === profile.user.id) ||
+          (c.requesterId === profile.user.id && c.recipientId === currentUserId)
+        );
+        
+        return {
+          ...profile,
+          connectionStatus: connection ? connection.status : 'NONE',
+          isRequester: connection?.requesterId === currentUserId
+        };
+      });
+    }
+
+    return { 
+      profiles: enhancedProfiles, 
+      meta: { 
+        totalCount, 
+        currentPage: parseInt(page), 
+        totalPages: Math.ceil(totalCount / parseInt(limit)) 
+      } 
     };
   } catch (error) {
     fastify.log.error(error);
@@ -1896,6 +2242,274 @@ fastify.get('/community/network/meta', async (request, reply) => {
       skills: uniqueSkills,
       roles: roles
     };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get all accepted connections for the current user
+fastify.get('/community/connections', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'Unauthorized' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    const connections = await prisma.connection.findMany({
+      where: {
+        status: 'ACCEPTED',
+        OR: [
+          { requesterId: userId },
+          { recipientId: userId }
+        ]
+      },
+      include: {
+        requester: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            profile: {
+              select: {
+                avatar: true,
+                bio: true,
+                city: true,
+                country: true,
+                skills: true,
+                impactPoints: true
+              }
+            }
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            profile: {
+              select: {
+                avatar: true,
+                bio: true,
+                city: true,
+                country: true,
+                skills: true,
+                impactPoints: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    // Map to return the "other" user in the connection
+    const connectedUsers = connections.map(conn => {
+      const otherUser = conn.requesterId === userId ? conn.recipient : conn.requester;
+      return {
+        ...otherUser.profile,
+        user: {
+          id: otherUser.id,
+          firstName: otherUser.firstName,
+          lastName: otherUser.lastName,
+          role: otherUser.role
+        },
+        connectionId: conn.id,
+        connectedAt: conn.updatedAt
+      };
+    });
+
+    return connectedUsers;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+// --- Messaging API ---
+
+// Get all conversations for the authenticated user
+fastify.get('/community/conversations', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  
+  try {
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        participants: {
+          some: { id: decoded.userId }
+        }
+      },
+      include: {
+        participants: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            profile: { select: { avatar: true } }
+          }
+        },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      },
+      orderBy: { lastMessageAt: 'desc' }
+    });
+    
+    return conversations;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Get messages for a specific conversation
+fastify.get('/community/conversations/:id/messages', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  
+  const { id } = request.params;
+  
+  try {
+    // Verify user is part of the conversation
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id,
+        participants: {
+          some: { id: decoded.userId }
+        }
+      }
+    });
+    
+    if (!conversation) {
+      return reply.code(403).send({ message: 'Access denied' });
+    }
+    
+    const messages = await prisma.message.findMany({
+      where: { conversationId: id },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true }
+        }
+      }
+    });
+
+    // Mark messages as read by this user
+    const unreadMessages = messages.filter(m => !m.readBy.includes(decoded.userId));
+    if (unreadMessages.length > 0) {
+        await Promise.all(unreadMessages.map(m => 
+            prisma.message.update({
+                where: { id: m.id },
+                data: { readBy: { push: decoded.userId } }
+            })
+        ));
+    }
+    
+    return messages;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Send a new message
+fastify.post('/community/messages', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+  
+  const { recipientId, content, conversationId } = request.body;
+  
+  if (!content) {
+    return reply.code(400).send({ message: 'Message content is required' });
+  }
+  
+  try {
+    let convId = conversationId;
+    
+    // If no conversation ID, find existing or create new between sender and recipient
+    if (!convId) {
+      if (!recipientId) return reply.code(400).send({ message: 'Recipient ID is required for a new conversation' });
+      
+      const existingConv = await prisma.conversation.findFirst({
+        where: {
+          AND: [
+            { participants: { some: { id: decoded.userId } } },
+            { participants: { some: { id: recipientId } } }
+          ]
+        }
+      });
+      
+      if (existingConv) {
+        convId = existingConv.id;
+      } else {
+        const newConv = await prisma.conversation.create({
+          data: {
+            participants: {
+              connect: [{ id: decoded.userId }, { id: recipientId }]
+            }
+          }
+        });
+        convId = newConv.id;
+      }
+    }
+    
+    const message = await prisma.message.create({
+      data: {
+        content,
+        senderId: decoded.userId,
+        conversationId: convId,
+        readBy: [decoded.userId]
+      },
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true }
+        }
+      }
+    });
+    
+    await prisma.conversation.update({
+      where: { id: convId },
+      data: { lastMessageAt: new Date() }
+    });
+
+    // Notify the recipient(s) other than the sender
+    try {
+      const conv = await prisma.conversation.findUnique({
+        where: { id: convId },
+        include: { participants: { select: { id: true } } }
+      });
+
+      const recipients = conv.participants.filter(p => p.id !== decoded.userId);
+      const senderUser = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { firstName: true, lastName: true }
+      });
+
+      for (const recipient of recipients) {
+        await prisma.notification.create({
+          data: {
+            userId: recipient.id,
+            title: `New message from ${senderUser.firstName} ${senderUser.lastName}`,
+            message: content.length > 60 ? content.slice(0, 60) + '...' : content,
+            type: 'new_message',
+            link: `/messages`,
+            read: false
+          }
+        });
+      }
+    } catch (notifyError) {
+      fastify.log.warn('Failed to create message notification:', notifyError);
+    }
+    
+    return message;
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });

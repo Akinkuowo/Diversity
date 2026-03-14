@@ -39,7 +39,7 @@ import {
     Bookmark,
     Bell
 } from 'lucide-react'
-import { DashboardLayout } from '../../components/dashboard/layout'
+import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Search,
@@ -13,9 +15,15 @@ import {
     Link as LinkIcon,
     Filter,
     Globe,
-    Award
+    Award,
+    UserPlus,
+    Check,
+    Clock,
+    ChevronDown,
+    ArrowRight,
+    Loader2
 } from 'lucide-react'
-import { DashboardLayout } from '../../components/dashboard/layout'
+import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,6 +39,7 @@ import {
 } from "@/components/ui/select"
 
 export default function NetworkPage() {
+
     const [profiles, setProfiles] = useState<any[]>([])
     const [meta, setMeta] = useState<{ skills: string[], roles: string[] }>({
         skills: [],
@@ -41,6 +50,9 @@ export default function NetworkPage() {
     const [selectedRole, setSelectedRole] = useState('all')
     const [selectedSkill, setSelectedSkill] = useState('all')
     const [user, setUser] = useState<any>(null)
+    const [page, setPage] = useState(1)
+    const [hasMore, setHasMore] = useState(true)
+    const router = useRouter()
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -59,6 +71,12 @@ export default function NetworkPage() {
     }, [])
 
     useEffect(() => {
+        setPage(1)
+        setProfiles([])
+        setHasMore(true)
+    }, [selectedRole, selectedSkill, searchTerm])
+
+    useEffect(() => {
         const fetchNetwork = async () => {
             setIsLoading(true)
             try {
@@ -66,11 +84,15 @@ export default function NetworkPage() {
                     role: selectedRole,
                     skill: selectedSkill,
                     search: searchTerm,
-                    limit: '12' // Fetch up to 12 for the demo
+                    page: page.toString(),
+                    limit: '12'
                 }).toString()
                 
                 const data = await api.get(`/community/network?${query}`)
-                setProfiles(data.profiles || [])
+                const newProfiles = data.profiles || []
+                
+                setProfiles(prev => page === 1 ? newProfiles : [...prev, ...newProfiles])
+                setHasMore(newProfiles.length === 12)
             } catch (err) {
                 toast.error('Failed to load network directory')
             } finally {
@@ -78,21 +100,33 @@ export default function NetworkPage() {
             }
         }
         
-        const debounce = setTimeout(fetchNetwork, 300)
+        const debounce = setTimeout(fetchNetwork, page === 1 ? 300 : 0)
         return () => clearTimeout(debounce)
-    }, [selectedRole, selectedSkill, searchTerm])
+    }, [selectedRole, selectedSkill, searchTerm, page])
 
-    const handleConnect = async (profileName: string) => {
-        try {
-            // Simulated connection request
-            toast.success(`Connection request sent to ${profileName}!`)
-        } catch (err) {
-            toast.error('Failed to send request')
+    const handleLoadMore = () => {
+        if (!isLoading && hasMore) {
+            setPage(prev => prev + 1)
         }
     }
 
-    const handleMessage = (profileName: string) => {
-        toast.info(`Messaging functionality with ${profileName} coming soon!`)
+    const handleConnect = async (requesterId: string, profileName: string) => {
+        try {
+            await api.post('/community/network/connect', { recipientId: requesterId })
+            toast.success(`Connection request sent to ${profileName}!`)
+            // Optionally, update the profile's connectionStatus in the state
+            setProfiles(prevProfiles => 
+                prevProfiles.map(p => 
+                    p.user.id === requesterId ? { ...p, connectionStatus: 'PENDING', isRequester: true } : p
+                )
+            )
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to send request')
+        }
+    }
+
+    const handleMessage = (userId: string) => {
+        router.push(`/messages?userId=${userId}`)
     }
 
     const formatRole = (role: string) => {
@@ -109,31 +143,47 @@ export default function NetworkPage() {
                     <div className="absolute top-0 right-0 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl" />
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl" />
 
-                    <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                        <div className="space-y-4">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-sm font-bold backdrop-blur-md"
+                            >
+                                <Globe className="w-4 h-4 text-cyan-300" />
+                                Global Directory
+                            </motion.div>
+                            <motion.h1
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="text-5xl md:text-7xl font-black leading-tight tracking-tight"
+                            >
+                                Find Your <span className="text-cyan-400">People</span>
+                            </motion.h1>
+                            <motion.p
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="text-slate-300 text-lg md:text-xl font-medium max-w-2xl leading-relaxed"
+                            >
+                                Connect, collaborate, and grow with a diverse network of professionals, mentors, and community leaders.
+                            </motion.p>
+                        </div>
+
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-xl text-sm font-semibold border border-white/20 shadow-inner"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 }}
                         >
-                            <Globe className="w-4 h-4 text-cyan-300" />
-                            Global Directory
+                            <Link href="/community/connections">
+                                <Button className="rounded-2xl h-16 px-8 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md font-black text-lg transition-all shadow-2xl group">
+                                    <Users className="w-6 h-6 mr-3 text-cyan-400 group-hover:scale-110 transition-transform" />
+                                    My Network
+                                    <ArrowRight className="w-5 h-5 ml-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                </Button>
+                            </Link>
                         </motion.div>
-                        <motion.h1
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-5xl md:text-7xl font-black leading-tight tracking-tight"
-                        >
-                            Find Your <span className="text-cyan-400">People</span>
-                        </motion.h1>
-                        <motion.p
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="text-slate-300 text-lg md:text-xl font-medium max-w-2xl leading-relaxed"
-                        >
-                            Connect, collaborate, and grow with a diverse network of professionals, mentors, and community leaders.
-                        </motion.p>
                     </div>
                 </div>
 
@@ -265,15 +315,37 @@ export default function NetworkPage() {
 
                                             {/* Action Bar */}
                                             <div className="p-4 bg-slate-50/80 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800/50 flex gap-3">
+                                                {profile.connectionStatus === 'ACCEPTED' ? (
+                                                    <Button 
+                                                        className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-all shadow-lg shadow-emerald-500/25 cursor-default"
+                                                    >
+                                                        <Check className="w-4 h-4 mr-2" />
+                                                        Connected
+                                                    </Button>
+                                                ) : profile.connectionStatus === 'PENDING' ? (
+                                                    <Button 
+                                                        className="flex-1 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold transition-all cursor-default"
+                                                        disabled
+                                                    >
+                                                        <Clock className="w-4 h-4 mr-2" />
+                                                        {profile.isRequester ? 'Pending...' : 'Review Request'}
+                                                    </Button>
+                                                ) : (
+                                                    <Button 
+                                                        className="flex-1 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-all shadow-lg shadow-primary-500/25"
+                                                        onClick={() => handleConnect(profile.user?.id, profile.user?.firstName)}
+                                                        disabled={profile.user?.id === user?.id}
+                                                    >
+                                                        <UserPlus className="w-4 h-4 mr-2" />
+                                                        Connect
+                                                    </Button>
+                                                )}
                                                 <Button 
-                                                    className="flex-1 rounded-xl bg-slate-900 hover:bg-primary-600 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-primary-500 dark:hover:text-white transition-all font-bold shadow-sm"
-                                                    onClick={() => handleConnect(profile.user?.firstName)}
+                                                    variant="outline" 
+                                                    className="w-12 h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group/msg"
+                                                    onClick={() => handleMessage(profile.user?.id)}
                                                 >
-                                                    <LinkIcon className="w-4 h-4 mr-2" />
-                                                    Connect
-                                                </Button>
-                                                <Button variant="outline" size="icon" className="rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-primary-600 hover:bg-primary-50 transition-colors">
-                                                    <MessageSquare className="w-4 h-4" />
+                                                    <MessageSquare className="w-5 h-5 text-slate-400 group-hover/msg:text-primary-500 transition-colors" />
                                                 </Button>
                                             </div>
                                         </CardContent>
@@ -293,6 +365,27 @@ export default function NetworkPage() {
                         </div>
                     )}
                 </div>
+                {/* Load More */}
+                {hasMore && profiles.length > 0 && (
+                    <div className="flex justify-center mt-12 pb-12">
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-12 h-14 font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl"
+                            onClick={handleLoadMore}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                    Loading...
+                                </>
+                            ) : (
+                                'Load More Connections'
+                            )}
+                        </Button>
+                    </div>
+                )}
             </div>
         </DashboardLayout>
     )
