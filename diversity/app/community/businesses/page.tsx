@@ -14,7 +14,9 @@ import {
     ShieldCheck,
     Star,
     Sparkles,
-    X
+    X,
+    Medal,
+    BadgeCheck
 } from 'lucide-react'
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
@@ -346,6 +348,37 @@ export default function BusinessDirectoryPage() {
                                         <p className="text-primary-800/80 dark:text-primary-200/80 font-medium leading-relaxed italic">
                                             "{selectedBusiness.diversityCommitment || 'Committed to fostering an inclusive work environment.'}"
                                         </p>
+                                    </div>
+
+                                    {/* Earned Badges Section */}
+                                    <div className="space-y-6">
+                                        <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Award className="w-6 h-6 text-secondary-600" />
+                                            Earned Diversity Badges
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {[
+                                                { title: 'Diversity Champion', icon: Medal, earned: selectedBusiness.summary?.isChampion, color: 'text-purple-600', bg: 'bg-purple-50' },
+                                                { title: 'Inclusion Partner', icon: Award, earned: selectedBusiness.summary?.isPartner, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                                { title: 'Diversity Supporter', icon: BadgeCheck, earned: selectedBusiness.summary?.isSupporter, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                                            ].filter(b => b.earned).map((badge) => {
+                                                const Icon = badge.icon
+                                                return (
+                                                    <div key={badge.title} className={`flex items-center gap-4 p-4 rounded-2xl ${badge.bg} dark:bg-slate-800 border border-transparent hover:border-gray-200 transition-all`}>
+                                                        <div className={`w-12 h-12 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm ${badge.color}`}>
+                                                            <Icon className="w-6 h-6" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-gray-900 dark:text-white">{badge.title}</p>
+                                                            <p className="text-xs font-medium text-gray-500">Verified Achievement</p>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                            {(!selectedBusiness.summary?.isSupporter) && (
+                                                <p className="text-gray-500 italic text-sm col-span-full py-4">This business is currently working towards its first diversity badge.</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 

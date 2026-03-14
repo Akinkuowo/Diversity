@@ -24,6 +24,7 @@ model User {
   twoFactorEnabled       Boolean                 @default(false)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
+  department             String?
   announcements          Announcement[]
   business               Business?
   certificates           Certificate[]
@@ -506,8 +507,9 @@ model Sponsorship {
   status      SponsorshipStatus @default(PENDING)
   sponsoredAt DateTime          @default(now())
   approvedAt  DateTime?
-  business    Business          @relation(fields: [businessId], references: [id])
-  project     CommunityProject  @relation(fields: [projectId], references: [id])
+  stripeSessionId String?           @unique
+  business        Business          @relation(fields: [businessId], references: [id])
+  project         CommunityProject  @relation(fields: [projectId], references: [id])
 }
 
 model ForumPost {

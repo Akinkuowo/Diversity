@@ -139,7 +139,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
 
-// Helper: authenticate from Authorization header
 const authenticate = (request, reply) => {
   const authHeader = request.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -154,6 +153,194 @@ const authenticate = (request, reply) => {
     return null;
   }
 };
+
+const includeBadgeData = {
+  diversityPledge: true,
+  employees: {
+    include: {
+      enrollments: true
+    }
+  },
+  courses: {
+    include: {
+      enrollments: {
+        include: {
+          user: true
+        }
+      },
+      modules: true
+    }
+  },
+  volunteerTasks: {
+    include: {
+      volunteerHours: true
+    }
+  },
+  sponsorships: true
+};
+
+const calculateBusinessBadges = (business) => {
+  if (!business) return null;
+
+  // 1. Diversity Pledge Badge
+  const hasPledge = (business.diversityCommitment && business.diversityCommitment.trim().length > 10) || !!business.diversityPledge;
+  
+  // 2. Training Program Badge
+  const hasTraining = business.courses?.some(c => (c.enrollments?.length || 0) > 0);
+
+  // 3. Community Partner Badge
+  const hasCommunity = business.sponsorships?.some(s => ['APPROVED', 'COMPLETED'].includes(s.status));
+
+  // 4. Impact Report Badge
+  const totalDonated = (business.sponsorships || [])
+    .filter(s => ['APPROVED', 'COMPLETED'].includes(s.status))
+    .reduce((sum, s) => sum + s.amount, 0);
+  
+  const totalHours = (business.volunteerTasks || []).reduce((sum, t) => 
+    sum + (t.volunteerHours || []).reduce((hSum, h) => hSum + h.hours, 0), 0);
+  
+  const supportedProjects = new Set((business.sponsorships || []).map(s => s.projectId)).size;
+  const estimatedReach = supportedProjects * 500;
+  const employeeCount = (business.employees || []).length;
+
+  const hasImpactReport = 
+    totalDonated >= 1000 || 
+    estimatedReach >= 10000 || 
+    totalHours >= 500 || 
+    employeeCount > 10;
+
+  // 5. Leadership Certificate
+  const hasLeadership = hasPledge && hasTraining && hasCommunity && hasImpactReport;
+
+  const milestones = [
+    { title: 'Diversity Pledge', completed: !!hasPledge, description: 'Fill in the Diversity & Inclusion Commitment section in your profile.' },
+    { title: 'Training Program', completed: !!hasTraining, description: 'Set up at least one training course and receive an enrollment.' },
+    { title: 'Community Partner', completed: !!hasCommunity, description: 'Make a successful sponsorship donation to a community project.' },
+    { title: 'Impact Report', completed: !!hasImpactReport, description: 'Reach $1000+ donations, 10k reach, 500 hours service, or 10+ employees.' },
+    { title: 'Leadership Certificate', completed: !!hasLeadership, description: 'Achieve all other diversity milestones.' }
+  ];
+
+  const earnedCount = milestones.filter(m => m.completed).length;
+  const diversityScore = earnedCount * 20;
+
+  // Training Hours Calculation
+  const totalTrainingHours = (business.courses || []).reduce((sum, course) => {
+    const completions = (course.enrollments || []).filter(e => e.progress === 100 || e.completedAt).length;
+    return sum + (completions * (course.cpdHours || course.duration || 0));
+  }, 0);
+
+  // Impact Metrics (last 6 months)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const last6Months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    last6Months.push({
+      month: months[d.getMonth()],
+      year: d.getFullYear(),
+      volunteer: 0,
+      training: 0,
+      sponsorship: 0
+    });
+  }
+
+  // Aggregate stats into months
+  (business.volunteerTasks || []).forEach(task => {
+    (task.volunteerHours || []).forEach(vh => {
+      const vhDate = new Date(vh.date || task.createdAt);
+      const mIdx = last6Months.findIndex(m => m.month === months[vhDate.getMonth()] && m.year === vhDate.getFullYear());
+      if (mIdx !== -1) last6Months[mIdx].volunteer += vh.hours;
+    });
+  });
+
+  (business.sponsorships || []).filter(s => ['APPROVED', 'COMPLETED'].includes(s.status)).forEach(s => {
+    const sDate = new Date(s.createdAt);
+    const mIdx = last6Months.findIndex(m => m.month === months[sDate.getMonth()] && m.year === sDate.getFullYear());
+    if (mIdx !== -1) last6Months[mIdx].sponsorship += s.amount;
+  });
+
+  // Training Progress by Department
+  const depts = {};
+  (business.employees || []).forEach(emp => {
+    const dept = emp.department || 'Other';
+    if (!depts[dept]) depts[dept] = { department: dept, completed: 0, enrolled: 0 };
+    
+    (emp.enrollments || []).forEach(enr => {
+      depts[dept].enrolled++;
+      if (enr.progress === 100 || enr.completedAt) depts[dept].completed++;
+    });
+  });
+  const trainingProgress = Object.values(depts);
+
+  // Recent Activity Feed
+  const activityList = [];
+  
+  (business.courses || []).forEach(course => {
+    (course.enrollments || []).forEach(enr => {
+      activityList.push({
+        id: `course-${enr.id}`,
+        type: 'course',
+        title: enr.completedAt ? `Employee completed ${course.title}` : `Employee enrolled in ${course.title}`,
+        user: `${enr.user?.firstName || 'User'} ${enr.user?.lastName || ''}`,
+        time: enr.completedAt || enr.enrolledAt,
+        rawDate: new Date(enr.completedAt || enr.enrolledAt)
+      });
+    });
+  });
+
+  (business.sponsorships || []).forEach(s => {
+    activityList.push({
+      id: `sponsorship-${s.id}`,
+      type: 'badge',
+      title: `Sponsored ${s.projectId || 'Project at ' + s.amount}`,
+      user: business.companyName,
+      time: s.createdAt,
+      rawDate: new Date(s.createdAt)
+    });
+  });
+
+  const recentActivities = activityList
+    .filter(a => a.rawDate && !isNaN(a.rawDate.getTime()))
+    .sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime())
+    .slice(0, 5)
+    .map(a => ({
+       ...a,
+       time: formatRelativeTime(a.rawDate)
+    }));
+
+  return {
+    milestones,
+    stats: {
+      totalEmployees: employeeCount,
+      trainingHours: totalTrainingHours,
+      volunteerHours: totalHours,
+      diversityScore: `${diversityScore}%`,
+      totalDonated,
+      estimatedReach
+    },
+    summary: {
+      earnedCount,
+      isChampion: earnedCount >= 5,
+      isPartner: earnedCount >= 3,
+      isSupporter: earnedCount >= 1
+    },
+    impactMetrics: last6Months,
+    trainingProgress,
+    recentActivities
+  };
+};
+
+function formatRelativeTime(date) {
+  const diff = new Date() - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
+}
 
 // POST Change Password
 fastify.post('/users/me/change-password', async (request, reply) => {
@@ -1902,6 +2089,7 @@ fastify.get('/businesses/:id', async (request, reply) => {
     const business = await prisma.business.findUnique({
       where: { id },
       include: {
+        ...includeBadgeData,
         user: {
           select: {
             firstName: true,
@@ -1923,7 +2111,8 @@ fastify.get('/businesses/:id', async (request, reply) => {
       return reply.code(404).send({ message: 'Business not found' });
     }
 
-    return business;
+    const badgeData = calculateBusinessBadges(business);
+    return { ...business, ...badgeData };
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });
@@ -1931,6 +2120,26 @@ fastify.get('/businesses/:id', async (request, reply) => {
 });
 
 // GET Current Business Profile
+// GET Business Badges
+fastify.get('/businesses/me/badges', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId },
+      include: includeBadgeData
+    });
+
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    return calculateBusinessBadges(business);
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to calculate badges' });
+  }
+});
+
 fastify.get('/businesses/me', async (request, reply) => {
   const decoded = authenticate(request, reply);
   if (!decoded) return;
@@ -1939,6 +2148,7 @@ fastify.get('/businesses/me', async (request, reply) => {
     const business = await prisma.business.findUnique({
       where: { userId: decoded.userId },
       include: {
+        ...includeBadgeData,
         user: {
           select: {
             email: true,
@@ -1954,10 +2164,12 @@ fastify.get('/businesses/me', async (request, reply) => {
       return reply.code(404).send({ message: 'Business profile not found' });
     }
 
-    return business;
+    const badgeData = calculateBusinessBadges(business);
+    return { ...business, ...badgeData };
   } catch (error) {
+    console.error('CRITICAL ERROR in /businesses/me:', error);
     fastify.log.error(error);
-    return reply.code(500).send({ message: 'Failed to fetch business profile' });
+    return reply.code(500).send({ message: 'Failed to fetch business profile', error: error.message });
   }
 });
 
@@ -2536,6 +2748,307 @@ fastify.get('/businesses/me/volunteering-stats', async (request, reply) => {
     return reply.code(500).send({ message: 'Failed to fetch volunteering stats' });
   }
 });
+
+// --- Business Sponsorship API ---
+
+// GET All Sponsorships for this business
+fastify.get('/businesses/me/sponsorships', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const sponsorships = await prisma.sponsorship.findMany({
+      where: { businessId: business.id },
+      include: {
+        project: true
+      },
+      orderBy: { sponsoredAt: 'desc' }
+    });
+    return sponsorships;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch sponsorships' });
+  }
+});
+
+// POST Create a new Sponsorship (Initiate Stripe Checkout)
+fastify.post('/businesses/me/sponsorships', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { projectId, amount, message } = request.body;
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const project = await prisma.communityProject.findUnique({
+      where: { id: projectId }
+    });
+    if (!project) return reply.code(404).send({ message: 'Project not found' });
+
+    // Create a pending sponsorship record
+    const sponsorship = await prisma.sponsorship.create({
+      data: {
+        businessId: business.id,
+        projectId,
+        amount: parseFloat(amount),
+        message,
+        status: 'PENDING'
+      }
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Sponsorship for ${project.title}`,
+              description: message || 'Corporate Sponsorship'
+            },
+            unit_amount: Math.round(parseFloat(amount) * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/business/sponsorships?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/business/sponsorships?canceled=true`,
+      metadata: {
+        sponsorshipId: sponsorship.id,
+        businessId: business.id,
+        projectId: projectId
+      }
+    });
+
+    // Update sponsorship with session ID
+    await prisma.sponsorship.update({
+      where: { id: sponsorship.id },
+      data: { stripeSessionId: session.id }
+    });
+
+    return { url: session.url };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to initiate sponsorship payment' });
+  }
+});
+
+// Stripe Webhook
+fastify.post('/webhooks/stripe', { config: { rawBody: true } }, async (request, reply) => {
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const sig = request.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(request.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    fastify.log.error(`Webhook Error: ${err.message}`);
+    return reply.code(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const { sponsorshipId, projectId } = session.metadata;
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Approve sponsorship
+        await tx.sponsorship.update({
+          where: { id: sponsorshipId },
+          data: { 
+            status: 'APPROVED',
+            approvedAt: new Date()
+          }
+        });
+
+        // Update project raised amount
+        await tx.communityProject.update({
+          where: { id: projectId },
+          data: {
+            raised: { increment: session.amount_total / 100 }
+          }
+        });
+      });
+      fastify.log.info(`Sponsorship ${sponsorshipId} approved via Stripe`);
+    } catch (error) {
+      fastify.log.error(`Error updating sponsorship after webhook: ${error.message}`);
+    }
+  }
+
+  return { received: true };
+});
+
+// GET Business Sponsorship Stats
+fastify.get('/businesses/me/sponsorship-stats', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const sponsorships = await prisma.sponsorship.findMany({
+      where: { businessId: business.id }
+    });
+
+    const totalSponsored = sponsorships.reduce((sum, s) => sum + s.amount, 0);
+    const uniqueProjects = new Set(sponsorships.map(s => s.projectId)).size;
+
+    return {
+      totalSponsored,
+      uniqueProjects,
+      impactReach: uniqueProjects * 500, // Mock impact metric
+      history: sponsorships.map(s => ({
+          date: s.sponsoredAt,
+          amount: s.amount
+      }))
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch sponsorship stats' });
+  }
+});
+
+// GET Available Community Projects
+fastify.get('/community/projects/available', async (request, reply) => {
+  try {
+    const projects = await prisma.communityProject.findMany({
+      where: { 
+        status: 'APPROVED',
+        endDate: { gte: new Date() }
+      },
+      include: {
+          _count: { select: { sponsorships: true } }
+      }
+    });
+    return projects;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch projects' });
+  }
+});
+
+// GET Business Impact Report
+fastify.get('/businesses/me/impact-report', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId },
+      include: {
+        employees: true,
+        courses: {
+          include: {
+            enrollments: true
+          }
+        },
+        volunteerTasks: {
+          include: {
+            volunteerHours: true,
+            assignments: true
+          }
+        },
+        sponsorships: {
+          include: {
+            project: true
+          }
+        }
+      }
+    });
+
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    // Training Metrics
+    const totalCourses = business.courses.length;
+    const totalEnrollments = business.courses.reduce((sum, c) => sum + c.enrollments.length, 0);
+    const completions = business.courses.reduce((sum, c) => 
+      sum + c.enrollments.filter(e => e.progress === 100).length, 0);
+
+    // Volunteering Metrics
+    const totalTasks = business.volunteerTasks.length;
+    const totalVolunteerHours = business.volunteerTasks.reduce((sum, t) => 
+      sum + t.volunteerHours.reduce((hSum, h) => hSum + h.hours, 0), 0);
+    const uniqueVolunteers = new Set(business.volunteerTasks.flatMap(t => 
+      t.assignments.map(a => a.volunteerId))).size;
+
+    // Sponsorship Metrics
+    const totalSponsored = business.sponsorships.reduce((sum, s) => sum + s.amount, 0);
+    const supportedProjects = new Set(business.sponsorships.map(s => s.projectId)).size;
+    const estimatedReach = supportedProjects * 500; // Mock ROI
+
+    // Generate monthly trend data (last 6 months)
+    const months = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+    const trendData = months.map((month, index) => {
+      // Mocking trend data based on actual totals for now
+      const factor = (index + 1) / 6;
+      return {
+        month,
+        training: Math.round(totalEnrollments * factor * 0.4),
+        volunteering: Math.round(totalVolunteerHours * factor * 0.6),
+        sponsorship: Math.round(totalSponsored * factor * 0.5)
+      };
+    });
+
+    return {
+      summary: {
+        totalInvestment: totalSponsored + (totalVolunteerHours * 25) + (totalEnrollments * 50), // Mock fiscal value
+        totalHours: totalVolunteerHours,
+        totalLearners: totalEnrollments,
+        impactReach: estimatedReach + (totalVolunteerHours * 10),
+      },
+      training: {
+        totalCourses,
+        totalEnrollments,
+        completions,
+        engagementRate: totalEnrollments > 0 ? (completions / totalEnrollments) * 100 : 0
+      },
+      volunteering: {
+        totalTasks,
+        totalHours: totalVolunteerHours,
+        uniqueVolunteers,
+        avgHoursPerTask: totalTasks > 0 ? totalVolunteerHours / totalTasks : 0
+      },
+      sponsorship: {
+        totalAmount: totalSponsored,
+        projectCount: supportedProjects,
+        reach: estimatedReach
+      },
+      charts: {
+        trend: trendData,
+        breakdown: [
+          { name: 'Training', value: totalEnrollments * 50 },
+          { name: 'Volunteering', value: totalVolunteerHours * 25 },
+          { name: 'Sponsorship', value: totalSponsored }
+        ],
+        sectorImpact: [
+          { sector: 'Education', value: totalCourses * 10 + supportedProjects * 5 },
+          { sector: 'Environment', value: totalTasks * 8 },
+          { sector: 'Equality', value: totalSponsored / 100 },
+          { sector: 'Health', value: uniqueVolunteers * 2 }
+        ]
+      }
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to generate impact report' });
+  }
+});
+
+
 
 // --- Volunteer Discovery API ---
 

@@ -9,6 +9,7 @@ import {
     Calendar,
     Heart,
     TrendingUp,
+    TrendingDown,
     Award,
     Target,
     DollarSign,
@@ -41,7 +42,11 @@ import {
     Settings2,
     BadgeCheck,
     Medal,
-    Star
+    Star,
+    Loader2,
+    ChevronRight,
+    Search,
+    Bell
 } from 'lucide-react'
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
@@ -50,6 +55,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { api } from '@/lib/api'
+import { useEffect, useCallback } from 'react'
+import { exportToCSV } from '@/lib/exportUtils'
 import {
     Table,
     TableBody,
@@ -169,6 +177,118 @@ const impactMetrics = [
 
 export default function BusinessDashboard() {
     const [selectedBadge, setSelectedBadge] = useState('champion')
+    const [data, setData] = useState<any>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    const fetchDashboardData = useCallback(async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            const res = await api.get('/businesses/me')
+            setData(res)
+        } catch (err: any) {
+            console.error('Error fetching dashboard data:', err)
+            setError(err.response?.data?.message || err.message || 'An unexpected error occurred')
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        fetchDashboardData()
+    }, [fetchDashboardData])
+
+    const handleRefresh = () => {
+        fetchDashboardData()
+    }
+
+    const handleExport = () => {
+        if (!data) return;
+
+        const exportData = [
+            {
+                'Report Date': new Date().toLocaleDateString(),
+                'Total Employees': data.stats?.totalEmployees || 0,
+                'Training Hours': data.stats?.trainingHours || 0,
+                'Volunteer Hours': data.stats?.volunteerHours || 0,
+                'Diversity Score': data.stats?.diversityScore || '0%',
+                'Badges Earned': (data.milestones || []).filter((m: any) => m.completed).length,
+                'Total Sponsorship ($)': (data.impactMetrics || []).reduce((sum: number, m: any) => sum + (m.sponsorship || 0), 0)
+            }
+        ];
+
+        exportToCSV(exportData, 'business_impact_report');
+    }
+
+    if (loading) {
+        return (
+            <DashboardLayout role="BUSINESS">
+                <div className="flex items-center justify-center h-[60vh]">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+                </div>
+            </DashboardLayout>
+        )
+    }
+
+    if (error || !data) {
+        return (
+            <DashboardLayout role="BUSINESS">
+                <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+                    <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+                        <AlertCircle className="w-8 h-8 text-red-500" />
+                    </div>
+                    <div className="text-center">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Failed to load dashboard</h2>
+                        <p className="text-gray-500 mt-1 max-w-xs">{error || 'Please try refreshing the page.'}</p>
+                    </div>
+                    <Button onClick={() => window.location.reload()} variant="outline">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Try Again
+                    </Button>
+                </div>
+            </DashboardLayout>
+        )
+    }
+
+    const dashboardStats = [
+        {
+            title: 'Total Employees',
+            value: data.stats?.totalEmployees || 0,
+            change: '+0',
+            icon: Users,
+            color: 'bg-blue-500',
+        },
+        {
+            title: 'Training Hours',
+            value: data.stats?.trainingHours?.toLocaleString() || 0,
+            change: '+0',
+            icon: BookOpen,
+            color: 'bg-secondary-500',
+        },
+        {
+            title: 'Volunteer Hours',
+            value: data.stats?.volunteerHours?.toLocaleString() || 0,
+            change: '+0',
+            icon: Heart,
+            color: 'bg-green-500',
+        },
+        {
+            title: 'Diversity Score',
+            value: data.stats?.diversityScore || '0%',
+            change: '+0%',
+            icon: Target,
+            color: 'bg-primary-500',
+        },
+    ]
+
+    const earnedBadges = [
+        { level: 'Diversity Champion', progress: 100, icon: Medal, color: 'purple', earned: data.summary?.isChampion },
+        { level: 'Inclusion Partner', progress: 100, icon: Award, color: 'blue', earned: data.summary?.isPartner },
+        { level: 'Diversity Supporter', progress: 100, icon: BadgeCheck, color: 'green', earned: data.summary?.isSupporter },
+    ].filter(b => b.earned)
+
+    const nextBadge = data.milestones?.find((m: any) => !m.completed)
 
     return (
         <DashboardLayout role="BUSINESS">
@@ -182,11 +302,11 @@ export default function BusinessDashboard() {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={handleExport}>
                             <Download className="w-4 h-4 mr-2" />
                             Export Report
                         </Button>
-                        <Button size="sm" className="bg-primary-600 text-white">
+                        <Button size="sm" className="bg-primary-600 text-white" onClick={handleRefresh}>
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Refresh
                         </Button>
@@ -203,10 +323,12 @@ export default function BusinessDashboard() {
                                     <h3 className="text-lg font-semibold">Your Diversity Badge</h3>
                                 </div>
                                 <p className="text-white/90 mb-4">
-                                    You're on track to achieve Diversity Champion status. Keep up the great work!
+                                    {nextBadge 
+                                        ? `You're on track to achieve ${nextBadge.title} status. Keep up the great work!` 
+                                        : "Congratulations! You've achieved all diversity milestones!"}
                                 </p>
                                 <div className="flex gap-4">
-                                    {badgeLevels.map((badge) => {
+                                    {earnedBadges.length > 0 ? earnedBadges.map((badge) => {
                                         const Icon = badge.icon
                                         return (
                                             <div key={badge.level} className="flex items-center gap-2">
@@ -215,11 +337,13 @@ export default function BusinessDashboard() {
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-medium">{badge.level}</p>
-                                                    <Progress value={badge.progress} className="w-24 h-1 bg-white/20" />
+                                                    <span className="text-xs bg-white text-primary-600 px-2 py-0.5 rounded-full">Earned</span>
                                                 </div>
                                             </div>
                                         )
-                                    })}
+                                    }) : (
+                                        <p className="text-sm text-white/70 italic">Start completing milestones to earn badges!</p>
+                                    )}
                                 </div>
                             </div>
                             <Button variant="secondary" className="bg-white text-secondary-600 hover:bg-gray-100">
@@ -231,7 +355,7 @@ export default function BusinessDashboard() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {stats.map((stat, index) => {
+                    {dashboardStats.map((stat, index) => {
                         const Icon = stat.icon
                         return (
                             <motion.div
@@ -246,9 +370,11 @@ export default function BusinessDashboard() {
                                             <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
                                                 <Icon className="w-6 h-6 text-white" />
                                             </div>
-                                            <Badge variant="default" className="bg-green-100 text-green-600">
-                                                {stat.change}
-                                            </Badge>
+                                            {stat.change !== '+0' && (
+                                                <Badge variant="default" className="bg-green-100 text-green-600">
+                                                    {stat.change}
+                                                </Badge>
+                                            )}
                                         </div>
                                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</h3>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">{stat.title}</p>
@@ -279,15 +405,15 @@ export default function BusinessDashboard() {
                             <CardContent>
                                 <div className="h-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={impactMetrics}>
+                                        <AreaChart data={data.impactMetrics}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="month" />
                                             <YAxis />
                                             <Tooltip />
                                             <Legend />
-                                            <Area type="monotone" dataKey="volunteer" stackId="1" stroke="#8884d8" fill="#8884d8" />
-                                            <Area type="monotone" dataKey="training" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
-                                            <Area type="monotone" dataKey="events" stackId="1" stroke="#ffc658" fill="#ffc658" />
+                                            <Area type="monotone" dataKey="volunteer" stackId="1" stroke="#8884d8" fill="#8884d8" name="Volunteer Hours" />
+                                            <Area type="monotone" dataKey="training" stackId="1" stroke="#82ca9d" fill="#82ca9d" name="Training Progress" />
+                                            <Area type="monotone" dataKey="sponsorship" stackId="1" stroke="#ffc658" fill="#ffc658" name="Sponsorship ($)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -309,7 +435,7 @@ export default function BusinessDashboard() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {recentActivities.map((activity) => (
+                                        {(data.recentActivities || []).map((activity: any) => (
                                             <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activity.type === 'course' ? 'bg-blue-100' :
                                                         activity.type === 'volunteer' ? 'bg-green-100' :
@@ -328,6 +454,9 @@ export default function BusinessDashboard() {
                                                 </div>
                                             </div>
                                         ))}
+                                        {!data.recentActivities?.length && (
+                                            <p className="text-center text-gray-500 py-4">No recent activity found.</p>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -345,7 +474,7 @@ export default function BusinessDashboard() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {employeeTrainingData.map((dept) => (
+                                        {(data.trainingProgress || []).map((dept: any) => (
                                             <div key={dept.department}>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-sm font-medium">{dept.department}</span>
@@ -353,9 +482,12 @@ export default function BusinessDashboard() {
                                                         {dept.completed}/{dept.enrolled}
                                                     </span>
                                                 </div>
-                                                <Progress value={(dept.completed / dept.enrolled) * 100} />
+                                                <Progress value={dept.enrolled > 0 ? (dept.completed / dept.enrolled) * 100 : 0} />
                                             </div>
                                         ))}
+                                        {!data.trainingProgress?.length && (
+                                            <p className="text-center text-gray-500 py-4">No training progress data yet.</p>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>

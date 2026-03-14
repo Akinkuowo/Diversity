@@ -20,7 +20,9 @@ import {
     Target,
     Activity,
     BadgeCheck,
-    Star
+    Star,
+    Medal,
+    Award
 } from 'lucide-react'
 import Link from 'next/link'
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
@@ -510,31 +512,74 @@ export default function BusinessProfilePage() {
                         </Card>
 
                         {/* Visibility & Status */}
-                        <Card className="border-none shadow-md overflow-hidden bg-gray-50/50 dark:bg-gray-800/50">
-                            <CardHeader className="pb-4">
-                                <CardTitle className="text-lg">Visibility Status</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <BadgeCheck className="w-5 h-5 mr-3 text-green-500" />
-                                        <span className="text-sm font-medium">Public Profile</span>
+                        <div className="space-y-6">
+                            <Card className="border-none shadow-md overflow-hidden bg-gray-50/50 dark:bg-gray-800/50">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg">Visibility Status</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <BadgeCheck className="w-5 h-5 mr-3 text-green-500" />
+                                            <span className="text-sm font-medium">Public Profile</span>
+                                        </div>
+                                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 uppercase text-[10px] tracking-widest">Active</Badge>
                                     </div>
-                                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 uppercase text-[10px] tracking-widest">Active</Badge>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs font-semibold text-gray-500">
-                                        <span>Profile Completion</span>
-                                        <span>85%</span>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs font-semibold text-gray-500">
+                                            <span>Profile Completion</span>
+                                            <span>{business?.diversityCommitment ? '85%' : '60%'}</span>
+                                        </div>
+                                        <Progress value={business?.diversityCommitment ? 85 : 60} className="h-2 bg-gray-200 dark:bg-gray-700" />
+                                        <p className="text-[10px] text-gray-400 flex items-center">
+                                            <Activity className="w-3 h-3 mr-1" />
+                                            Impact metrics last synced 2h ago
+                                        </p>
                                     </div>
-                                    <Progress value={85} className="h-2 bg-gray-200 dark:bg-gray-700" />
-                                    <p className="text-[10px] text-gray-400 flex items-center">
-                                        <Activity className="w-3 h-3 mr-1" />
-                                        Impact metrics last synced 2h ago
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+
+                            {/* Earned Badges Card */}
+                            <Card className="border-none shadow-md overflow-hidden bg-gradient-to-br from-primary-50 to-white dark:from-primary-950/20 dark:to-slate-900 border border-primary-100 dark:border-primary-900/30">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <Award className="w-5 h-5 text-secondary-600" />
+                                        Earned Badges
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {[
+                                        { title: 'Diversity Champion', icon: Medal, earned: business?.summary?.isChampion, color: 'text-purple-600' },
+                                        { title: 'Inclusion Partner', icon: Award, earned: business?.summary?.isPartner, color: 'text-blue-600' },
+                                        { title: 'Diversity Supporter', icon: BadgeCheck, earned: business?.summary?.isSupporter, color: 'text-emerald-600' },
+                                    ].filter(b => b.earned).map((badge) => {
+                                        const Icon = badge.icon
+                                        return (
+                                            <div key={badge.title} className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-gray-800">
+                                                <div className={`w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-900 flex items-center justify-center ${badge.color}`}>
+                                                    <Icon className="w-5 h-5" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{badge.title}</p>
+                                                    <p className="text-[10px] text-gray-400">Verified Achievement</p>
+                                                </div>
+                                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                            </div>
+                                        )
+                                    })}
+                                    {(!business?.summary?.isSupporter) && (
+                                        <div className="text-center py-4">
+                                            <p className="text-sm text-gray-500 italic">No badges earned yet.</p>
+                                            <Link href="/business/badge">
+                                                <Button variant="link" size="sm" className="text-primary-600 font-bold p-0 h-auto mt-2">
+                                                    View Milestones
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 </div>
             </div>
