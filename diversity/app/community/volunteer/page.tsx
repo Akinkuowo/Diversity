@@ -16,6 +16,7 @@ import {
     Briefcase,
     Globe
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -73,11 +74,12 @@ export default function VolunteerPage() {
 
     const handleApply = async (taskId: string) => {
         try {
-            // In a real app, this would be a POST to /volunteer/apply
-            // For now, we'll simulate it
-            toast.success('Interest registered! The project lead will contact you soon.')
-        } catch (err) {
-            toast.error('Failed to submit interest')
+            await api.post(`/volunteer-tasks/${taskId}/interest`, {})
+            // Optimistically update the local state so the button changes immediately
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, isRegistered: true } : t))
+            toast.success('Interest registered! The project lead will reach out to you soon.')
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to submit interest')
         }
     }
 
@@ -226,10 +228,25 @@ export default function VolunteerPage() {
 
                                                 <Button
                                                     onClick={() => handleApply(task.id)}
-                                                    className="w-full h-12 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold hover:scale-[1.02] transition-all group-hover:bg-primary-600 group-hover:text-white"
+                                                    disabled={task.isRegistered}
+                                                    className={cn(
+                                                        "w-full h-12 rounded-xl font-bold transition-all",
+                                                        task.isRegistered 
+                                                            ? "bg-green-100 text-green-700 border border-green-200 cursor-default hover:bg-green-100" 
+                                                            : "bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:scale-[1.02] group-hover:bg-primary-600 group-hover:text-white"
+                                                    )}
                                                 >
-                                                    Interested
-                                                    <ArrowRight className="w-4 h-4 ml-2" />
+                                                    {task.isRegistered ? (
+                                                        <>
+                                                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                            Interest Sent
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Interested
+                                                            <ArrowRight className="w-4 h-4 ml-2" />
+                                                        </>
+                                                    )}
                                                 </Button>
                                             </div>
                                         </CardContent>

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useToast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 import { api } from '@/lib/api'
 
 const loginSchema = z.object({
@@ -29,7 +29,6 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginForm() {
     const router = useRouter()
-    const { toast } = useToast()
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
@@ -69,18 +68,15 @@ export default function LoginForm() {
 
             const redirectPath = roleRedirects[response.user.role as keyof typeof roleRedirects] || '/'
 
-            toast({
-                title: 'Login successful!',
+            toast.success('Login successful!', {
                 description: `Redirecting to your ${response.user.role.toLowerCase().replace('_', ' ')} dashboard...`,
             })
 
             router.push(redirectPath)
         } catch (error: any) {
             console.error('Login error:', error)
-            toast({
-                title: 'Login Failed',
-                description: error.response?.data?.message || 'Invalid credentials',
-                variant: 'destructive',
+            toast.error('Login Failed', {
+                description: error.response?.data?.message || 'Invalid email or password. Please check your credentials and try again.',
             })
         } finally {
             setIsLoading(false)

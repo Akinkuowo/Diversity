@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
     Heart,
@@ -225,6 +226,7 @@ const skillDistribution = [
 ]
 
 export default function VolunteerDashboard() {
+    const router = useRouter()
     const [selectedView, setSelectedView] = useState('upcoming')
     const [userName, setUserName] = useState('Volunteer')
 
@@ -258,8 +260,8 @@ export default function VolunteerDashboard() {
                             <Share2 className="w-4 h-4 mr-2" />
                             Share Profile
                         </Button>
-                        <Button size="sm" className="bg-primary-500 text-white">
-                            <Bell className="w-4 h-4 mr-2" />
+                        <Button size="sm" className="bg-primary-500 text-white" onClick={() => router.push('/volunteer/opportunities')}>
+                            <Target className="w-4 h-4 mr-2" />
                             Find Opportunities
                         </Button>
                     </div>

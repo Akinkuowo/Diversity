@@ -36,6 +36,12 @@ export default function BusinessDirectoryPage() {
     const [user, setUser] = useState<any>(null)
     const [selectedBusiness, setSelectedBusiness] = useState<any>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
+    const [applyingFor, setApplyingFor] = useState<any>(null)
+    const [applicationForm, setApplicationForm] = useState({
+        resumeUrl: '',
+        coverLetter: ''
+    })
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -81,6 +87,21 @@ export default function BusinessDirectoryPage() {
             setIsModalOpen(true)
         } catch (err) {
             toast.error('Failed to load business details')
+        }
+    }
+
+    const handleApply = async () => {
+        if (!applyingFor) return
+        setIsSubmitting(true)
+        try {
+            await api.post(`/employment-notices/${applyingFor.id}/apply`, applicationForm)
+            toast.success('Your application has been submitted!')
+            setApplyingFor(null)
+            setApplicationForm({ resumeUrl: '', coverLetter: '' })
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to submit application')
+        } finally {
+            setIsSubmitting(false)
         }
     }
 
@@ -350,6 +371,53 @@ export default function BusinessDirectoryPage() {
                                         </p>
                                     </div>
 
+                                    {/* Open Positions Section */}
+                                    <div className="space-y-6">
+                                        <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Briefcase className="w-6 h-6 text-primary-600" />
+                                            Open Positions
+                                        </h4>
+                                        <div className="space-y-4">
+                                            {selectedBusiness.employmentNotices && selectedBusiness.employmentNotices.length > 0 ? (
+                                                selectedBusiness.employmentNotices.map((notice: any) => (
+                                                    <div key={notice.id} className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-800 hover:border-primary-200 dark:hover:border-primary-900 transition-all shadow-sm">
+                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                            <div className="space-y-2">
+                                                                <h5 className="text-lg font-bold text-gray-900 dark:text-white">{notice.title}</h5>
+                                                                <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <MapPin className="w-4 h-4" />
+                                                                        {notice.location || 'Remote'}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Briefcase className="w-4 h-4" />
+                                                                        {notice.type}
+                                                                    </span>
+                                                                    {notice.salary && (
+                                                                        <span className="font-semibold text-primary-600">{notice.salary}</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">
+                                                                    {notice.description}
+                                                                </p>
+                                                            </div>
+                                                            <Button 
+                                                                onClick={() => setApplyingFor(notice)}
+                                                                className="bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl whitespace-nowrap"
+                                                            >
+                                                                Apply Now
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-8 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
+                                                    <p className="text-gray-500 italic">No open positions at the moment.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     {/* Earned Badges Section */}
                                     <div className="space-y-6">
                                         <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
@@ -436,6 +504,72 @@ export default function BusinessDirectoryPage() {
 
                                     <Button className="w-full h-14 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-lg shadow-primary-500/20 text-lg">
                                         Send Message
+                                    </Button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Application Modal */}
+            <AnimatePresence>
+                {applyingFor && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setApplyingFor(null)}
+                            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden"
+                        >
+                            <div className="p-10 space-y-6">
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black text-gray-900 dark:text-white">Apply for {applyingFor.title}</h3>
+                                    <p className="text-gray-500 text-sm font-medium">{selectedBusiness?.companyName}</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Resume URL</label>
+                                        <Input 
+                                            placeholder="https://dropbox.com/s/your-resume.pdf"
+                                            className="rounded-2xl h-12 bg-gray-50 dark:bg-slate-800 border-none"
+                                            value={applicationForm.resumeUrl}
+                                            onChange={(e) => setApplicationForm({...applicationForm, resumeUrl: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Cover Letter</label>
+                                        <textarea 
+                                            placeholder="Tell them why you're a great fit..."
+                                            className="w-full min-h-[150px] p-4 rounded-2xl bg-gray-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-primary-500/50 outline-none transition-all"
+                                            value={applicationForm.coverLetter}
+                                            onChange={(e) => setApplicationForm({...applicationForm, coverLetter: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 pt-4">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setApplyingFor(null)}
+                                        className="flex-1 h-14 rounded-2xl font-bold border-gray-200"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button 
+                                        onClick={handleApply}
+                                        disabled={isSubmitting || !applicationForm.resumeUrl}
+                                        className="flex-[2] h-14 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-lg shadow-primary-500/20"
+                                    >
+                                        {isSubmitting ? 'Submitting...' : 'Submit Application'}
                                     </Button>
                                 </div>
                             </div>

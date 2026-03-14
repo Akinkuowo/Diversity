@@ -176,7 +176,8 @@ const includeBadgeData = {
       volunteerHours: true
     }
   },
-  sponsorships: true
+  sponsorships: true,
+  employmentNotices: true
 };
 
 const calculateBusinessBadges = (business) => {
@@ -298,6 +299,21 @@ const calculateBusinessBadges = (business) => {
       rawDate: new Date(s.createdAt)
     });
   });
+
+  // Include Notifications in Recent Activities
+  if (business.user?.notifications) {
+    business.user.notifications.forEach(n => {
+      activityList.push({
+        id: `notification-${n.id}`,
+        type: n.type === 'info' ? 'event' : 'event', // Mapping type to compatible icon type in frontend
+        title: n.title,
+        message: n.message,
+        user: 'System Notification',
+        time: n.createdAt,
+        rawDate: new Date(n.createdAt)
+      });
+    });
+  }
 
   const recentActivities = activityList
     .filter(a => a.rawDate && !isNaN(a.rawDate.getTime()))
@@ -560,7 +576,7 @@ fastify.post('/login', async (request, reply) => {
     });
 
     if (!user) {
-      return reply.code(401).send({ message: 'Invalid credentials' });
+      return reply.code(401).send({ message: 'Invalid email or password. Please check your credentials and try again.' });
     }
 
     if (!user.emailVerified) {
@@ -569,7 +585,7 @@ fastify.post('/login', async (request, reply) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return reply.code(401).send({ message: 'Invalid credentials' });
+      return reply.code(401).send({ message: 'Invalid email or password. Please check your credentials and try again.' });
     }
 
     // Set expiration based on rememberMe
@@ -2022,7 +2038,7 @@ fastify.get('/businesses', async (request, reply) => {
   const { industry, badgeLevel, search } = request.query;
   try {
     const where = {
-      verificationStatus: 'VERIFIED'
+      verificationStatus: { in: ['VERIFIED', 'PENDING'] }
     };
 
     if (industry && industry !== 'all') {
@@ -2066,7 +2082,7 @@ fastify.get('/businesses', async (request, reply) => {
 fastify.get('/businesses/meta', async (request, reply) => {
   try {
     const industries = await prisma.business.findMany({
-      where: { verificationStatus: 'VERIFIED' },
+      where: { verificationStatus: { in: ['VERIFIED', 'PENDING'] } },
       select: { industry: true }
     });
 
@@ -2150,11 +2166,11 @@ fastify.get('/businesses/me', async (request, reply) => {
       include: {
         ...includeBadgeData,
         user: {
-          select: {
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true
+          include: {
+            notifications: {
+              orderBy: { createdAt: 'desc' },
+              take: 20
+            }
           }
         }
       }
@@ -2331,8 +2347,25 @@ fastify.post('/employment-notices/:id/apply', async (request, reply) => {
         userId: decoded.userId,
         resumeUrl,
         coverLetter
+      },
+      include: {
+        notice: {
+          include: { business: true }
+        }
       }
     });
+
+    // Notify business
+    await prisma.notification.create({
+      data: {
+        userId: application.notice.business.userId,
+        title: 'New Job Application',
+        message: `A new application has been received for the position: ${application.notice.title}.`,
+        type: 'info',
+        link: `/business/applications` // Assuming this route exists or will exist
+      }
+    });
+
     return application;
   } catch (error) {
     // Handle unique constraint (already applied)
@@ -2643,6 +2676,62 @@ fastify.get('/businesses/me/volunteer-tasks', async (request, reply) => {
   }
 });
 
+// GET Volunteers for a specific task (business view)
+fastify.get('/volunteer-tasks/:id/volunteers', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const task = await prisma.volunteerTask.findFirst({
+      where: { id, businessId: business.id }
+    });
+    if (!task) return reply.code(404).send({ message: 'Task not found' });
+
+    const assignments = await prisma.volunteerAssignment.findMany({
+      where: { taskId: id },
+      include: {
+        volunteer: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+                profile: { select: { avatar: true, bio: true } }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { assignedAt: 'desc' }
+    });
+
+    return assignments.map(a => ({
+      id: a.id,
+      status: a.status,
+      assignedAt: a.assignedAt,
+      completedAt: a.completedAt,
+      volunteer: {
+        firstName: a.volunteer.user.firstName,
+        lastName: a.volunteer.user.lastName,
+        email: a.volunteer.user.email,
+        avatar: a.volunteer.user.profile?.avatar,
+        bio: a.volunteer.user.profile?.bio
+      }
+    }));
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch volunteers' });
+  }
+});
+
 // POST Create a new Volunteer Task
 fastify.post('/businesses/me/volunteer-tasks', async (request, reply) => {
   const decoded = authenticate(request, reply);
@@ -2673,6 +2762,106 @@ fastify.post('/businesses/me/volunteer-tasks', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Failed to create volunteer task' });
+  }
+});
+
+// POST Register Interest for Volunteer Task
+fastify.post('/volunteer-tasks/:id/interest', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const task = await prisma.volunteerTask.findUnique({
+      where: { id },
+      include: { business: true }
+    });
+
+    if (!task) {
+      return reply.code(404).send({ message: 'Volunteer task not found' });
+    }
+
+    // Ensure user has a Volunteer profile
+    let volunteer = await prisma.volunteer.findUnique({
+      where: { userId: decoded.userId }
+    });
+
+    if (!volunteer) {
+      volunteer = await prisma.volunteer.create({
+        data: { userId: decoded.userId }
+      });
+    }
+
+    // Check if already assigned
+    const existingAssignment = await prisma.volunteerAssignment.findFirst({
+      where: {
+        taskId: id,
+        volunteerId: volunteer.id
+      }
+    });
+
+    if (existingAssignment) {
+      return reply.code(400).send({ message: 'You have already registered interest for this task' });
+    }
+
+    // Create assignment
+    await prisma.volunteerAssignment.create({
+      data: {
+        taskId: id,
+        volunteerId: volunteer.id,
+        status: 'ASSIGNED'
+      }
+    });
+
+    // Create a notification for the business owner
+    if (task.business) {
+      await prisma.notification.create({
+        data: {
+          userId: task.business.userId,
+          title: 'New Volunteer Interest',
+          message: `A community member has shown interest in your volunteer task: ${task.title}.`,
+          type: 'info',
+          link: `/business/volunteering`
+        }
+      });
+    }
+
+    return { message: 'Interest registered successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to register interest' });
+  }
+});
+
+// GET Current Volunteer Assignments
+fastify.get('/volunteers/me/tasks', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const volunteer = await prisma.volunteer.findUnique({
+      where: { userId: decoded.userId }
+    });
+
+    if (!volunteer) {
+      return [];
+    }
+
+    const assignments = await prisma.volunteerAssignment.findMany({
+      where: { volunteerId: volunteer.id },
+      include: {
+        task: {
+          include: { business: true }
+        }
+      },
+      orderBy: { assignedAt: 'desc' }
+    });
+
+    return assignments;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch assignments' });
   }
 });
 
@@ -3076,10 +3265,43 @@ fastify.get('/community/volunteer/tasks', async (request, reply) => {
 
     const tasks = await prisma.volunteerTask.findMany({
       where,
+      include: {
+        assignments: true
+      },
       orderBy: { createdAt: 'desc' }
     });
 
-    return tasks;
+    // Check for optional authentication to mark registered tasks
+    const authHeader = request.headers.authorization;
+    let userId = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        userId = decoded.userId;
+      } catch (err) {
+        // Ignore invalid token for this public endpoint
+      }
+    }
+
+    if (userId) {
+      // Find the volunteer record if it exists
+      const volunteer = await prisma.volunteer.findUnique({
+        where: { userId }
+      });
+
+      return tasks.map(task => ({
+        ...task,
+        isRegistered: volunteer ? task.assignments.some(a => a.volunteerId === volunteer.id) : false,
+        assignments: undefined // Hide internal assignments data
+      }));
+    }
+
+    return tasks.map(task => ({
+      ...task,
+      isRegistered: false,
+      assignments: undefined
+    }));
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });

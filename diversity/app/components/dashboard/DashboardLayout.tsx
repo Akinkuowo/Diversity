@@ -338,10 +338,8 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                                     !notification.read && "bg-slate-50 dark:bg-slate-900/50"
                                                 )}
                                                 onClick={() => {
-                                                    if (notification.type === 'new_message' || !notification.type) {
-                                                        markAsRead(notification.id)
-                                                        if (notification.link) router.push(notification.link)
-                                                    }
+                                                    markAsRead(notification.id)
+                                                    if (notification.link) router.push(notification.link)
                                                 }}
                                             >
                                                 <div className="flex justify-between w-full">
