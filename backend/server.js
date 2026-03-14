@@ -2015,6 +2015,527 @@ fastify.put('/businesses/me', async (request, reply) => {
     return reply.code(500).send({ message: 'Failed to update business profile' });
   }
 });
+// --- Employment Notices & Applications API ---
+
+// GET All Employment Notices (Public)
+fastify.get('/employment-notices', async (request, reply) => {
+  try {
+    const notices = await prisma.employmentNotice.findMany({
+      include: {
+        business: {
+          select: {
+            companyName: true,
+            logo: true,
+            industry: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return notices;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch employment notices' });
+  }
+});
+
+// POST Create Employment Notice (Business Only)
+fastify.post('/employment-notices', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { title, description, location, type, salary, requirements } = request.body;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+
+    if (!business) {
+      return reply.code(403).send({ message: 'Only businesses can post notices' });
+    }
+
+    const notice = await prisma.employmentNotice.create({
+      data: {
+        businessId: business.id,
+        title,
+        description,
+        location,
+        type,
+        salary,
+        requirements: requirements || []
+      }
+    });
+
+    return notice;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create employment notice' });
+  }
+});
+
+// GET My Employment Notices (Business Only)
+fastify.get('/businesses/me/employment-notices', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+
+    if (!business) {
+      return reply.code(403).send({ message: 'Only businesses can view their notices' });
+    }
+
+    const notices = await prisma.employmentNotice.findMany({
+      where: { businessId: business.id },
+      include: {
+        _count: {
+          select: { applications: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return notices;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch notices' });
+  }
+});
+
+// POST Apply for Notice (User)
+fastify.post('/employment-notices/:id/apply', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { resumeUrl, coverLetter } = request.body;
+
+  try {
+    const application = await prisma.employmentApplication.create({
+      data: {
+        noticeId: id,
+        userId: decoded.userId,
+        resumeUrl,
+        coverLetter
+      }
+    });
+    return application;
+  } catch (error) {
+    // Handle unique constraint (already applied)
+    if (error.code === 'P2002') {
+      return reply.code(400).send({ message: 'You have already applied for this position' });
+    }
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to submit application' });
+  }
+});
+
+// GET Business Applications (Business Only)
+fastify.get('/businesses/me/applications', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const applications = await prisma.employmentApplication.findMany({
+      where: {
+        notice: { businessId: business.id }
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            profile: {
+              select: { avatar: true }
+            }
+          }
+        },
+        notice: {
+          select: { title: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return applications;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch applications' });
+  }
+});
+
+// PATCH Update Application Status (Hire Flow)
+fastify.patch('/applications/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { status } = request.body; // ACCEPTED, REJECTED, etc.
+
+  try {
+    const application = await prisma.employmentApplication.findUnique({
+      where: { id },
+      include: { notice: true }
+    });
+
+    if (!application) return reply.code(404).send({ message: 'Application not found' });
+
+    // Verify ownership
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business || application.notice.businessId !== business.id) {
+      return reply.code(403).send({ message: 'Unauthorized' });
+    }
+
+    const updated = await prisma.employmentApplication.update({
+      where: { id },
+      data: { status }
+    });
+
+    // If accepted, mark user as employee
+    if (status === 'ACCEPTED') {
+      await prisma.user.update({
+        where: { id: application.userId },
+        data: { employedAtId: business.id }
+      });
+    }
+
+    return updated;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update application' });
+  }
+});
+
+// PUT Update Employment Notice
+fastify.put('/employment-notices/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { title, description, location, type, salary, requirements } = request.body;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const updated = await prisma.employmentNotice.update({
+      where: { id, businessId: business.id },
+      data: {
+        title,
+        description,
+        location,
+        type,
+        salary,
+        requirements: requirements || []
+      }
+    });
+
+    return updated;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update notice' });
+  }
+});
+
+// DELETE Employment Notice
+fastify.delete('/employment-notices/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    await prisma.employmentNotice.delete({
+      where: { id, businessId: business.id }
+    });
+
+    return { message: 'Notice deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete notice' });
+  }
+});
+
+
+// --- Business Training (Courses) API ---
+
+// GET All Courses authored by this business
+fastify.get('/businesses/me/courses', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const courses = await prisma.course.findMany({
+      where: { authorBusinessId: business.id },
+      include: {
+        _count: {
+          select: { enrollments: true, modules: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return courses;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch business courses' });
+  }
+});
+
+// POST Create a new Business Course
+fastify.post('/businesses/me/courses', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { title, description, level, duration, category, tags, thumbnail } = request.body;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const course = await prisma.course.create({
+      data: {
+        title,
+        description,
+        level: level || 'BEGINNER',
+        duration: parseInt(duration) || 0,
+        category: category || 'Internal Training',
+        tags: tags || [],
+        thumbnail,
+        authorBusinessId: business.id,
+        type: 'INTERNAL',
+        isPublished: true
+      }
+    });
+
+    return course;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create training course' });
+  }
+});
+
+// DELETE Business Course
+fastify.delete('/courses/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const course = await prisma.course.findFirst({
+      where: { id, authorBusinessId: business.id }
+    });
+    if (!course) return reply.code(404).send({ message: 'Course not found' });
+
+    await prisma.course.delete({ where: { id } });
+    return { message: 'Course deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete course' });
+  }
+});
+
+// GET Business Training Enrollment Stats
+fastify.get('/businesses/me/training-stats', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+        where: { userId: decoded.userId },
+        include: { employees: true }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const courses = await prisma.course.findMany({
+        where: { authorBusinessId: business.id },
+        include: {
+            enrollments: {
+                include: { user: { select: { firstName: true, lastName: true, email: true } } }
+            }
+        }
+    });
+
+    return {
+        totalCourses: courses.length,
+        totalEnrollments: courses.reduce((sum, c) => sum + c.enrollments.length, 0),
+        activeEmployees: business.employees.length,
+        courses: courses.map(c => ({
+            id: c.id,
+            title: c.title,
+            enrollmentCount: c.enrollments.length,
+            completions: c.enrollments.filter(e => e.progress === 100).length
+        }))
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch training stats' });
+  }
+});
+
+// --- Business Volunteering API ---
+
+// GET All Volunteer Tasks posted by this business
+fastify.get('/businesses/me/volunteer-tasks', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const tasks = await prisma.volunteerTask.findMany({
+      where: { businessId: business.id },
+      include: {
+        _count: {
+          select: { assignments: true, volunteerHours: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return tasks;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch business volunteer tasks' });
+  }
+});
+
+// POST Create a new Volunteer Task
+fastify.post('/businesses/me/volunteer-tasks', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { title, description, project, startDate, endDate, hours } = request.body;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const task = await prisma.volunteerTask.create({
+      data: {
+        title,
+        description,
+        project,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        hours: parseInt(hours) || 0,
+        businessId: business.id,
+        status: 'OPEN'
+      }
+    });
+
+    return task;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create volunteer task' });
+  }
+});
+
+// DELETE Volunteer Task
+fastify.delete('/volunteer-tasks/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const task = await prisma.volunteerTask.findFirst({
+      where: { id, businessId: business.id }
+    });
+    if (!task) return reply.code(404).send({ message: 'Task not found' });
+
+    await prisma.volunteerTask.delete({ where: { id } });
+    return { message: 'Task deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete volunteer task' });
+  }
+});
+
+// GET Business Volunteering Impact Stats
+fastify.get('/businesses/me/volunteering-stats', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const tasks = await prisma.volunteerTask.findMany({
+      where: { businessId: business.id },
+      include: {
+        volunteerHours: true,
+        assignments: true
+      }
+    });
+
+    const corporateLogs = await prisma.corporateVolunteering.findMany({
+      where: { businessId: business.id }
+    });
+
+    const totalTaskHours = tasks.reduce((sum, t) => 
+        sum + t.volunteerHours.reduce((hSum, h) => hSum + h.hours, 0), 0);
+    const totalCorporateHours = corporateLogs.reduce((sum, log) => sum + log.hours, 0);
+
+    return {
+      totalTasks: tasks.length,
+      activeTasks: tasks.filter(t => t.status === 'OPEN').length,
+      totalHours: totalTaskHours + totalCorporateHours,
+      totalVolunteers: new Set([
+        ...tasks.flatMap(t => t.assignments.map(a => a.volunteerId)),
+        ...corporateLogs.map(l => l.volunteerId)
+      ]).size,
+      impactTrend: [
+        { month: 'Jan', hours: 0 },
+        { month: 'Feb', hours: 0 },
+        { month: 'Mar', hours: totalTaskHours + totalCorporateHours }
+      ]
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch volunteering stats' });
+  }
+});
 
 // --- Volunteer Discovery API ---
 
