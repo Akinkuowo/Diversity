@@ -12,11 +12,25 @@ const getHeaders = () => {
 };
 
 export const api = {
-  get: async (endpoint: string) => {
+  get: async (endpoint: string, options?: { params?: Record<string, any> }) => {
     const headers = getHeaders();
     delete headers['Content-Type'];
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    let url = `${API_URL}${endpoint}`;
+    if (options?.params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url += `${url.includes('?') ? '&' : '?'}${queryString}`;
+      }
+    }
+
+    const response = await fetch(url, {
       method: 'GET',
       headers,
     });

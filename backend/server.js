@@ -4636,6 +4636,50 @@ fastify.get('/admin/users', async (request, reply) => {
   }
 });
 
+// GET user details (Admin only)
+fastify.get('/admin/users/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: true,
+        business: true,
+        achievements: {
+          include: {
+            achievement: true
+          }
+        },
+        certificates: {
+          include: {
+            course: true
+          }
+        },
+        enrollments: {
+          include: {
+            course: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return reply.code(404).send({ message: 'User not found' });
+    }
+
+    // Don't send the password
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
 // PATCH update user (Admin only)
 fastify.patch('/admin/users/:id', async (request, reply) => {
   const admin = await checkAdmin(request, reply);
