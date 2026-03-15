@@ -4561,6 +4561,128 @@ fastify.post('/community/messages', async (request, reply) => {
   }
 });
 
+// --- Admin User Management API ---
+
+// Helper function to check for admin role
+const checkAdmin = async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return null;
+  
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.userId },
+    select: { role: true }
+  });
+  
+  if (!user || user.role !== 'ADMIN') {
+    reply.code(403).send({ message: 'Forbidden: Admin access required' });
+    return null;
+  }
+  
+  return decoded;
+};
+
+// GET all users (Admin only)
+fastify.get('/admin/users', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { search, role, page = 1, limit = 10 } = request.query;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  
+  const where = {};
+  if (role && role !== 'all') {
+    where.role = role;
+  }
+  
+  if (search) {
+    where.OR = [
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  try {
+    const [users, totalCount] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          profile: {
+            select: {
+              avatar: true,
+              city: true,
+              country: true
+            }
+          }
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.user.count({ where })
+    ]);
+
+    return {
+      users,
+      meta: {
+        totalCount,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / parseInt(limit))
+      }
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// PATCH update user (Admin only)
+fastify.patch('/admin/users/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { role, firstName, lastName, emailVerified } = request.body;
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        role,
+        firstName,
+        lastName,
+        emailVerified
+      }
+    });
+
+    return updatedUser;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update user' });
+  }
+});
+
+// DELETE user (Admin only)
+fastify.delete('/admin/users/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    // Delete user (Prisma usually handles related records if configured to cascade, 
+    // otherwise we might need to delete them manually or set foreign keys to NULL/CASCADE in schema)
+    await prisma.user.delete({
+      where: { id }
+    });
+
+    return { message: 'User deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete user' });
+  }
+});
+
 // Start the server
 const start = async () => {
   try {
