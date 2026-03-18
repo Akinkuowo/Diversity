@@ -54,11 +54,14 @@ export default function CourseViewerPage() {
     const courseId = params.id as string
 
     const [course, setCourse] = useState<any>(null)
+    const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [currentLesson, setCurrentLesson] = useState<any>(null)
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [activeTab, setActiveTab] = useState('overview')
     const [markingComplete, setMarkingComplete] = useState(false)
+    const [showCongrats, setShowCongrats] = useState(false)
+    const [earnedCertificateId, setEarnedCertificateId] = useState<string | null>(null)
 
     const fetchCourse = useCallback(async () => {
         try {
@@ -90,7 +93,18 @@ export default function CourseViewerPage() {
 
     useEffect(() => {
         fetchCourse()
+        
+        // Fetch user role for role-aware navigation
+        api.get('/me').then(setUser).catch(console.error)
     }, [fetchCourse])
+
+    const handleExit = () => {
+        if (user?.role === 'BUSINESS') {
+            router.push('/business/training')
+        } else {
+            router.push('/learner/courses')
+        }
+    }
 
     const handleLessonComplete = async (lessonId: string) => {
         setMarkingComplete(true)
@@ -121,7 +135,15 @@ export default function CourseViewerPage() {
             if (nextLesson) {
                 setCurrentLesson(nextLesson)
             } else {
-                toast.success('Congratulations! You\'ve completed this course!')
+                // Course completed! Check for certificate
+                const certs = await api.get('/learners/me/certificates')
+                const currentCert = certs.find((c: any) => c.courseId === courseId)
+                if (currentCert) {
+                    setEarnedCertificateId(currentCert.id)
+                    setShowCongrats(true)
+                } else {
+                    toast.success('Congratulations! You\'ve completed this course!')
+                }
             }
         } catch (err) {
             console.error('Failed to complete lesson:', err)
@@ -147,7 +169,7 @@ export default function CourseViewerPage() {
             <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
                 <div className="text-center space-y-4">
                     <h1 className="text-2xl font-bold">Course not found</h1>
-                    <Button onClick={() => router.push('/learner/courses')}>Back to Courses</Button>
+                    <Button onClick={handleExit}>Back to Courses</Button>
                 </div>
             </div>
         )
@@ -257,7 +279,7 @@ export default function CourseViewerPage() {
                                 variant="ghost" 
                                 size="sm" 
                                 className="gap-2 text-slate-500 font-bold rounded-xl"
-                                onClick={() => router.push('/learner/courses')}
+                                onClick={handleExit}
                             >
                                 <ArrowLeft className="w-4 h-4" />
                                 <span className="hidden sm:inline">Exit Course</span>
@@ -469,6 +491,49 @@ export default function CourseViewerPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Congrats Dialog */}
+            <AnimatePresence>
+                {showCongrats && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-lg w-full text-center shadow-2xl"
+                        >
+                            <div className="w-24 h-24 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Award className="w-12 h-12 text-amber-500" />
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4">Course Completed!</h2>
+                            <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                                Congratulations! You've successfully completed <span className="font-bold text-slate-900 dark:text-white">"{course?.title}"</span>. 
+                                Your professional certificate is now ready.
+                            </p>
+                            <div className="flex flex-col gap-3">
+                                <Button 
+                                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl shadow-blue-500/20"
+                                    onClick={() => router.push(`/certificates/${earnedCertificateId}`)}
+                                >
+                                    View My Certificate
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    className="rounded-xl font-bold"
+                                    onClick={() => setShowCongrats(false)}
+                                >
+                                    Maybe Later
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

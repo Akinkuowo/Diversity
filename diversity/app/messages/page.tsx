@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Send,
@@ -45,6 +45,14 @@ interface Conversation {
 }
 
 export default function MessagesPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"/></div>}>
+            <MessagesContent />
+        </Suspense>
+    )
+}
+
+function MessagesContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [user, setUser] = useState<any>(null)

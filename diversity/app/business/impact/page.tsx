@@ -249,7 +249,7 @@ export default function BusinessImpactReportPage() {
                                             dataKey="value"
                                         >
                                             {data?.charts?.breakdown.map((entry: any, index: number) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} cornerRadius={8} />
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
                                         <RechartsTooltip />

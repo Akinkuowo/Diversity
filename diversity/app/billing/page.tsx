@@ -15,6 +15,7 @@ import {
     Sparkles,
     Crown,
     Lock,
+    Package,
 } from 'lucide-react'
 import { DashboardLayout } from '../components/dashboard/DashboardLayout'
 import { api } from '@/lib/api'
@@ -102,6 +103,20 @@ export default function BillingPage() {
     const [upgrading, setUpgrading] = useState<string | null>(null)
     const router = useRouter()
 
+    const [plans, setPlans] = useState<any[]>([])
+
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const data = await api.get('/billing-packages')
+                setPlans(data)
+            } catch (error) {
+                console.error('Failed to fetch plans:', error)
+            }
+        }
+        fetchPlans()
+    }, [])
+
     useEffect(() => {
         const fetchUser = async () => {
             try {
@@ -118,6 +133,24 @@ export default function BillingPage() {
         }
         fetchUser()
     }, [router])
+
+    const iconMap: Record<string, React.ReactNode> = {
+        free: <Star className="w-5 h-5" />,
+        pro: <Zap className="w-5 h-5 text-primary-600" />,
+        business: <Crown className="w-5 h-5 text-secondary-600" />,
+    }
+
+    const colorMap: Record<string, string> = {
+        free: 'border-gray-200',
+        pro: 'border-primary-500 ring-2 ring-primary-500/30',
+        business: 'border-secondary-400 ring-2 ring-secondary-400/20',
+    }
+
+    const badgeColorMap: Record<string, string> = {
+        free: 'bg-gray-100 text-gray-600',
+        pro: 'bg-primary-100 text-primary-700',
+        business: 'bg-secondary-100 text-secondary-700',
+    }
 
     const handleUpgrade = async (planId: string) => {
         if (planId === currentPlan) return
@@ -169,49 +202,40 @@ export default function BillingPage() {
                 </div>
 
                 {/* Current Plan Banner */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                    <Card className="border-none shadow-md bg-gradient-to-br from-primary-600 to-[#006666] text-white overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
-                        <CardContent className="p-6 relative z-10">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                                        {currentPlanData.icon}
+                {plans.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                        <Card className="border-none shadow-md bg-gradient-to-br from-primary-600 to-[#006666] text-white overflow-hidden relative">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+                            <CardContent className="p-6 relative z-10">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                            {iconMap[currentPlan] || <Zap className="w-6 h-6" />}
+                                        </div>
+                                        <div>
+                                            <p className="text-white/70 text-sm">Current Plan</p>
+                                            <h2 className="text-2xl font-bold">
+                                                {plans.find(p => p.id === currentPlan)?.name || 'Basic'}
+                                            </h2>
+                                            {currentPlan !== 'free' && (
+                                                <p className="text-white/70 text-sm">
+                                                    Next billing on <span className="text-white font-medium">April 1, 2026</span>
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-white/70 text-sm">Current Plan</p>
-                                        <h2 className="text-2xl font-bold">{currentPlanData.name}</h2>
-                                        {currentPlan !== 'free' && (
-                                            <p className="text-white/70 text-sm">
-                                                Next billing on <span className="text-white font-medium">April 1, 2026</span>
-                                            </p>
-                                        )}
-                                        {currentPlan === 'free' && (
-                                            <p className="text-white/70 text-sm">No billing — free forever</p>
-                                        )}
+                                    <div className="text-right">
+                                        <p className="text-3xl font-bold">
+                                            ${plans.find(p => p.id === currentPlan)?.price || 0}
+                                            {currentPlan !== 'free' && <span className="text-lg font-normal text-white/70">/mo</span>}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-3xl font-bold">
-                                        {currentPlan === 'free' ? '$0' : `$${PLANS.find(p => p.id === currentPlan)?.price}`}
-                                        {currentPlan !== 'free' && <span className="text-lg font-normal text-white/70">/mo</span>}
-                                    </p>
-                                    {currentPlan !== 'free' && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-white/70 hover:text-white hover:bg-white/10 mt-1"
-                                            onClick={() => handleUpgrade('free')}
-                                        >
-                                            Cancel subscription
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
 
                 {/* Plans */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -233,11 +257,15 @@ export default function BillingPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        {PLANS.map((plan, i) => {
-                            const price = isYearly && plan.price > 0
-                                ? (plan.price * 0.8).toFixed(2)
+                        {plans.map((plan, i) => {
+                            const price = isYearly && plan.price > 0 && plan.yearlyPrice
+                                ? (plan.yearlyPrice / 12).toFixed(2)
                                 : plan.price.toFixed(2)
                             const isCurrent = currentPlan === plan.id
+                            const planIcon = iconMap[plan.name.toLowerCase()] || <Package className="w-5 h-5" />
+                            const planColor = colorMap[plan.name.toLowerCase()] || 'border-gray-200'
+                            const badgeColor = badgeColorMap[plan.name.toLowerCase()] || 'bg-gray-100 text-gray-600'
+
                             return (
                                 <motion.div
                                     key={plan.id}
@@ -245,18 +273,25 @@ export default function BillingPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.1 + i * 0.07 }}
                                 >
-                                    <Card className={`border-2 ${plan.color} shadow-md h-full flex flex-col relative overflow-hidden`}>
-                                        {plan.badge && (
+                                    <Card className={`border-2 ${planColor} shadow-md h-full flex flex-col relative overflow-hidden`}>
+                                        {plan.isPopular && (
                                             <div className="absolute top-4 right-4">
-                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${plan.badgeColor}`}>
+                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full bg-primary-100 text-primary-700`}>
+                                                    Most Popular
+                                                </span>
+                                            </div>
+                                        )}
+                                        {plan.badge && !plan.isPopular && (
+                                            <div className="absolute top-4 right-4">
+                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${badgeColor}`}>
                                                     {plan.badge}
                                                 </span>
                                             </div>
                                         )}
                                         <CardHeader className="pb-4">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${plan.badgeColor}`}>
-                                                    {plan.icon}
+                                                <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${badgeColor}`}>
+                                                    {planIcon}
                                                 </span>
                                                 <CardTitle className="text-lg">{plan.name}</CardTitle>
                                             </div>
@@ -266,7 +301,7 @@ export default function BillingPage() {
                                                 </span>
                                                 {plan.price > 0 && (
                                                     <span className="text-gray-400 text-sm ml-1">
-                                                        /{isYearly ? 'mo, billed yearly' : 'month'}
+                                                        /{isYearly ? 'mo, billed yearly' : plan.interval}
                                                     </span>
                                                 )}
                                                 {plan.price === 0 && (
@@ -277,17 +312,9 @@ export default function BillingPage() {
                                         </CardHeader>
                                         <CardContent className="flex-1 flex flex-col gap-4">
                                             <ul className="space-y-2.5">
-                                                {plan.features.map(f => (
+                                                {plan.features.map((f: string) => (
                                                     <li key={f} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                         <CheckCircle2 className="w-4 h-4 text-primary-500 mt-0.5 shrink-0" />
-                                                        {f}
-                                                    </li>
-                                                ))}
-                                                {plan.missing.map(f => (
-                                                    <li key={f} className="flex items-start gap-2 text-sm text-gray-400">
-                                                        <div className="w-4 h-4 mt-0.5 shrink-0 rounded-full border border-gray-200 flex items-center justify-center">
-                                                            <div className="w-1.5 h-px bg-gray-300" />
-                                                        </div>
                                                         {f}
                                                     </li>
                                                 ))}
@@ -296,7 +323,7 @@ export default function BillingPage() {
                                                 <Button
                                                     className={`w-full ${isCurrent
                                                         ? 'bg-gray-100 dark:bg-slate-800 text-gray-500 cursor-not-allowed'
-                                                        : plan.id === 'business'
+                                                        : plan.name.toLowerCase() === 'business'
                                                             ? 'bg-secondary-600 hover:bg-secondary-700 text-white'
                                                             : 'bg-primary-600 hover:bg-primary-700 text-white'
                                                         }`}
@@ -310,8 +337,6 @@ export default function BillingPage() {
                                                         </span>
                                                     ) : isCurrent ? (
                                                         'Current Plan'
-                                                    ) : plan.id === 'free' ? (
-                                                        'Downgrade'
                                                     ) : (
                                                         <span className="flex items-center gap-2">
                                                             <Sparkles className="w-4 h-4" />

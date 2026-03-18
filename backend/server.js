@@ -493,7 +493,7 @@ fastify.post('/register', async (request, reply) => {
 
     await sendVerificationEmail(email, firstName, verificationToken);
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
 
     return { token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role } };
   } catch (error) {
@@ -590,7 +590,7 @@ fastify.post('/login', async (request, reply) => {
 
     // Set expiration based on rememberMe
     const expiresIn = rememberMe ? '30d' : '1d';
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn });
+    const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn });
 
     // Record a session entry so it shows up in Active Sessions
     await prisma.userSession.create({
@@ -1496,9 +1496,26 @@ fastify.post('/forgot-password', async (request, reply) => {
 fastify.get('/events', async (request, reply) => {
   try {
     const { category, type } = request.query;
-    const where = {
-      status: 'PUBLISHED'
-    };
+    
+    // Check if requester is admin
+    let showAll = false;
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.role === 'ADMIN') {
+          showAll = true;
+        }
+      } catch (err) {
+        // Token invalid, ignore and show only published
+      }
+    }
+
+    const where = {};
+    if (!showAll) {
+      where.status = 'PUBLISHED';
+    }
 
     if (category && category !== 'All') {
       where.category = category;
@@ -1531,6 +1548,65 @@ fastify.get('/events', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Suspend/Unsuspend Event (Admin Only)
+fastify.patch('/admin/events/:id/status', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded || decoded.role !== 'ADMIN') {
+    return reply.code(403).send({ message: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+  const { status } = request.body;
+
+  if (!['PUBLISHED', 'SUSPENDED', 'CANCELLED'].includes(status)) {
+    return reply.code(400).send({ message: 'Invalid status' });
+  }
+
+  try {
+    const event = await prisma.event.update({
+      where: { id },
+      data: { status }
+    });
+    return event;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update event status' });
+  }
+});
+
+// Delete Event (Admin Only)
+fastify.delete('/admin/events/:id', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded || decoded.role !== 'ADMIN') {
+    return reply.code(403).send({ message: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+
+  try {
+    // Check if event exists
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) {
+      return reply.code(404).send({ message: 'Event not found' });
+    }
+
+    // Delete related records first if necessary, though cascade delete should handle it if defined
+    // For safety, let's delete registrations and tickets
+    await prisma.eventRegistration.deleteMany({ where: { eventId: id } });
+    await prisma.ticket.deleteMany({ where: { eventId: id } });
+    await prisma.eventFeedback.deleteMany({ where: { eventId: id } });
+
+    await prisma.event.delete({
+      where: { id }
+    });
+
+    return { message: 'Event deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete event' });
   }
 });
 
@@ -1581,6 +1657,11 @@ fastify.post('/events/:id/register', async (request, reply) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.userId;
+    const userRole = decoded.role;
+
+    if (userRole === 'ADMIN') {
+      return reply.code(403).send({ message: 'Administrators cannot register for events.' });
+    }
 
     // Check if already registered
     const existing = await prisma.eventRegistration.findUnique({
@@ -2028,6 +2109,240 @@ fastify.get('/resources/meta', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// --- Admin Resource Management ---
+
+// GET all resources (admin, includes unpublished)
+fastify.get('/admin/resources', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { search, category, type } = request.query;
+  try {
+    const where = {};
+    if (category && category !== 'all') where.category = category;
+    if (type && type !== 'all') where.type = type;
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const resources = await prisma.resource.findMany({
+      where,
+      include: {
+        author: { select: { firstName: true, lastName: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return resources;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch resources' });
+  }
+});
+
+// POST create resource (admin)
+fastify.post('/admin/resources', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { title, description, type, category, fileUrl, content, language, tags, isPublished } = request.body;
+
+  if (!title || !type || !category) {
+    return reply.code(400).send({ message: 'title, type and category are required' });
+  }
+
+  try {
+    const resource = await prisma.resource.create({
+      data: {
+        title,
+        description: description || null,
+        type,
+        category,
+        fileUrl: fileUrl || null,
+        content: content || null,
+        language: language || 'en',
+        tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []),
+        isPublished: isPublished ?? false,
+        authorId: admin.userId
+      }
+    });
+    return reply.code(201).send(resource);
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create resource' });
+  }
+});
+
+// PUT update resource (admin)
+fastify.put('/admin/resources/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, description, type, category, fileUrl, content, language, tags, isPublished } = request.body;
+
+  try {
+    const resource = await prisma.resource.update({
+      where: { id },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(type !== undefined && { type }),
+        ...(category !== undefined && { category }),
+        ...(fileUrl !== undefined && { fileUrl }),
+        ...(content !== undefined && { content }),
+        ...(language !== undefined && { language }),
+        ...(tags !== undefined && { tags: Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim()).filter(Boolean) }),
+        ...(isPublished !== undefined && { isPublished }),
+      }
+    });
+    return resource;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update resource' });
+  }
+});
+
+// DELETE resource (admin)
+fastify.delete('/admin/resources/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  try {
+    await prisma.resource.delete({ where: { id } });
+    return { message: 'Resource deleted' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete resource' });
+  }
+});
+
+
+// Get all active billing packages (Public)
+fastify.get('/billing-packages', async (request, reply) => {
+  try {
+    const packages = await prisma.billingPackage.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    return packages;
+  } catch (error) {
+    console.error('Error fetching billing packages:', error);
+    return reply.code(500).send({ message: 'Error fetching billing packages' });
+  }
+});
+
+// --- Admin Billing Packages ---
+
+// Get all billing packages (Admin)
+fastify.get('/admin/billing-packages', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  try {
+    const packages = await prisma.billingPackage.findMany({
+      orderBy: { sortOrder: 'asc' }
+    });
+    return packages;
+  } catch (error) {
+    console.error('Error fetching billing packages:', error);
+    return reply.code(500).send({ message: 'Error fetching billing packages' });
+  }
+});
+
+// Create billing package (Admin)
+fastify.post('/admin/billing-packages', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { 
+    name, description, price, yearlyPrice, interval, 
+    features, isActive, isPopular, sortOrder, badge, color 
+  } = request.body;
+
+  if (!name || price === undefined) {
+    return reply.code(400).send({ message: 'name and price are required' });
+  }
+
+  try {
+    const pkg = await prisma.billingPackage.create({
+      data: {
+        name,
+        description: description || null,
+        price: parseFloat(price),
+        yearlyPrice: yearlyPrice ? parseFloat(yearlyPrice) : null,
+        interval: interval || 'month',
+        features: Array.isArray(features) ? features : [],
+        isActive: isActive ?? true,
+        isPopular: isPopular ?? false,
+        sortOrder: parseInt(sortOrder) || 0,
+        badge: badge || null,
+        color: color || null
+      }
+    });
+    return reply.code(201).send(pkg);
+  } catch (error) {
+    console.error('Error creating billing package:', error);
+    return reply.code(500).send({ message: 'Error creating billing package' });
+  }
+});
+
+// Update billing package (Admin)
+fastify.put('/admin/billing-packages/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { 
+    name, description, price, yearlyPrice, interval, 
+    features, isActive, isPopular, sortOrder, badge, color 
+  } = request.body;
+
+  try {
+    const pkg = await prisma.billingPackage.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        price: price !== undefined ? parseFloat(price) : undefined,
+        yearlyPrice: yearlyPrice !== undefined ? parseFloat(yearlyPrice) : undefined,
+        interval,
+        features: Array.isArray(features) ? features : undefined,
+        isActive,
+        isPopular,
+        sortOrder: sortOrder !== undefined ? parseInt(sortOrder) : undefined,
+        badge,
+        color
+      }
+    });
+    return pkg;
+  } catch (error) {
+    console.error('Error updating billing package:', error);
+    return reply.code(500).send({ message: 'Error updating billing package' });
+  }
+});
+
+// Delete billing package (Admin)
+fastify.delete('/admin/billing-packages/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    await prisma.billingPackage.delete({
+      where: { id }
+    });
+    return reply.code(204).send();
+  } catch (error) {
+    console.error('Error deleting billing package:', error);
+    return reply.code(500).send({ message: 'Error deleting billing package' });
   }
 });
 
@@ -2653,25 +2968,24 @@ fastify.get('/businesses/me/training-stats', async (request, reply) => {
     });
     if (!business) return reply.code(403).send({ message: 'Unauthorized' });
 
-    const courses = await prisma.course.findMany({
-        where: { authorBusinessId: business.id },
-        include: {
-            enrollments: {
-                include: { user: { select: { firstName: true, lastName: true, email: true } } }
-            }
+    const stats = await prisma.enrollment.aggregate({
+        where: { userId: decoded.userId },
+        _count: true,
+        _avg: { progress: true }
+    });
+
+    const completions = await prisma.enrollment.count({
+        where: { 
+            userId: decoded.userId,
+            progress: 100
         }
     });
 
     return {
-        totalCourses: courses.length,
-        totalEnrollments: courses.reduce((sum, c) => sum + c.enrollments.length, 0),
-        activeEmployees: business.employees.length,
-        courses: courses.map(c => ({
-            id: c.id,
-            title: c.title,
-            enrollmentCount: c.enrollments.length,
-            completions: c.enrollments.filter(e => e.progress === 100).length
-        }))
+        totalEnrolled: stats._count,
+        completed: completions,
+        avgProgress: Math.round(stats._avg.progress || 0),
+        activeEmployees: business.employees.length
     };
   } catch (error) {
     fastify.log.error(error);
@@ -2808,7 +3122,11 @@ fastify.get('/learners/me/enrollments', async (request, reply) => {
       include: {
         course: {
           include: {
-            _count: { select: { modules: true } }
+            _count: { select: { modules: true } },
+            certificates: {
+              where: { userId: decoded.userId },
+              select: { id: true }
+            }
           }
         }
       },
@@ -2849,6 +3167,43 @@ fastify.get('/learners/me/certificates', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Failed to fetch certificates' });
+  }
+});
+
+// GET Specific Certificate Details
+fastify.get('/certificates/:id', async (request, reply) => {
+  const { id } = request.params;
+
+  try {
+    const certificate = await prisma.certificate.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true
+          }
+        },
+        course: {
+          select: {
+            title: true,
+            authorBusiness: {
+              select: {
+                companyName: true,
+                logo: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!certificate) return reply.code(404).send({ message: 'Certificate not found' });
+
+    return certificate;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch certificate details' });
   }
 });
 
@@ -3026,7 +3381,7 @@ fastify.post('/learners/me/enroll/:courseId', async (request, reply) => {
         title: 'Successfully Enrolled! 📚',
         message: `You've enrolled in "${course.title}". Start learning now!`,
         type: 'info',
-        link: `/learner/courses`
+        link: decoded.role === 'BUSINESS' ? '/business/training' : '/learner/courses'
       }
     });
 
@@ -3083,7 +3438,7 @@ fastify.post('/lessons/:id/complete', async (request, reply) => {
   try {
     const lesson = await prisma.lesson.findUnique({
       where: { id },
-      include: { module: true }
+      include: { module: { include: { course: true } } }
     });
 
     if (!lesson) return reply.code(404).send({ message: 'Lesson not found' });
@@ -3141,6 +3496,36 @@ fastify.post('/lessons/:id/complete', async (request, reply) => {
           completedAt: progress === 100 ? new Date() : enrollment.completedAt
         }
       });
+
+      // Generate Certificate if 100%
+      if (progress === 100) {
+        const existingCert = await prisma.certificate.findFirst({
+          where: { userId: decoded.userId, courseId: lesson.module.courseId }
+        });
+
+        if (!existingCert) {
+          const verificationCode = crypto.randomBytes(8).toString('hex').toUpperCase();
+          const certificate = await prisma.certificate.create({
+            data: {
+              userId: decoded.userId,
+              courseId: lesson.module.courseId,
+              certificateUrl: `/certificates/${verificationCode}`, // Placeholder URL
+              verificationCode: verificationCode
+            }
+          });
+
+          // Notify user about certificate
+          await prisma.notification.create({
+            data: {
+              userId: decoded.userId,
+              title: 'New Certificate Earned! 🎓',
+              message: `Congratulations! You've successfully completed "${lesson.module.course.title}". Download your certificate now.`,
+              type: 'success',
+              link: `/certificates/${certificate.id}`
+            }
+          });
+        }
+      }
     }
 
     return { success: true };
@@ -5181,6 +5566,494 @@ fastify.delete('/admin/courses/:id', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Failed to delete course' });
+  }
+});
+
+// --- Admin Volunteer Management Routes ---
+
+// Get all volunteers
+fastify.get('/admin/volunteers', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: 'VOLUNTEER' },
+      include: {
+        profile: { select: { avatar: true } },
+        volunteer: {
+          include: {
+            _count: { select: { tasks: true, hours: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Map to the format the frontend expects
+    const volunteers = users.map(u => ({
+      id: u.volunteer?.id || `temp_${u.id}`,
+      skills: u.volunteer?.skills || [],
+      totalHours: u.volunteer?.totalHours || 0,
+      createdAt: u.volunteer?.createdAt || u.createdAt,
+      _count: u.volunteer?._count || { tasks: 0, hours: 0 },
+      user: {
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        profile: u.profile
+      }
+    }));
+
+    return volunteers;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch volunteers' });
+  }
+});
+
+// Get all volunteer tasks
+fastify.get('/admin/volunteer-tasks', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  try {
+    const tasks = await prisma.volunteerTask.findMany({
+      include: {
+        business: {
+          select: { companyName: true }
+        },
+        volunteer: {
+          select: {
+            user: {
+              select: { firstName: true, lastName: true }
+            }
+          }
+        },
+        _count: {
+          select: { assignments: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return tasks;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch volunteer tasks' });
+  }
+});
+
+// Get admin dashboard reports overview
+fastify.get('/admin/reports/overview', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  try {
+    const [
+      totalUsers,
+      totalBusinesses,
+      totalCourses,
+      totalEnrollments,
+      totalEvents,
+      totalRegistrations,
+      totalVolunteerHoursData,
+      roleDistribution
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.business.count(),
+      prisma.course.count(),
+      prisma.enrollment.count(),
+      prisma.event.count(),
+      prisma.eventRegistration.count(),
+      prisma.volunteer.aggregate({
+        _sum: { totalHours: true }
+      }),
+      prisma.user.groupBy({
+        by: ['role'],
+        _count: { role: true }
+      })
+    ]);
+
+    // Format role distribution
+    const roles = {
+      ADMIN: 0,
+      BUSINESS: 0,
+      COMMUNITY_MEMBER: 0,
+      LEARNER: 0,
+      VOLUNTEER: 0
+    };
+
+    roleDistribution.forEach(item => {
+      if (roles[item.role] !== undefined) {
+        roles[item.role] = item._count.role;
+      }
+    });
+
+    return {
+      users: {
+        total: totalUsers,
+        distribution: roles
+      },
+      businesses: {
+        total: totalBusinesses
+      },
+      courses: {
+        total: totalCourses,
+        enrollments: totalEnrollments
+      },
+      events: {
+        total: totalEvents,
+        registrations: totalRegistrations
+      },
+      volunteering: {
+        totalHours: totalVolunteerHoursData._sum.totalHours || 0
+      }
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch reports overview' });
+  }
+});
+
+// Admin Analytics endpoint
+fastify.get('/admin/dashboard-stats', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  try {
+    const now = new Date();
+    // Helper: count records created in a given month
+    const countInMonth = async (model, year, month, dateField = 'createdAt') => {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 1);
+      return model.count({ where: { [dateField]: { gte: start, lt: end } } });
+    };
+
+    // Monthly User Growth for the last 8 months (as requested by frontend)
+    const months = [];
+    for (let i = 7; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: d.toLocaleString('default', { month: 'short' }) });
+    }
+
+    const userGrowthTrend = await Promise.all(months.map(async (m) => {
+      const users = await countInMonth(prisma.user, m.year, m.month);
+      const businesses = await countInMonth(prisma.business, m.year, m.month);
+      const volunteers = await countInMonth(prisma.volunteer, m.year, m.month);
+      return { month: m.label, users, businesses, volunteers };
+    }));
+
+    // Daily Activity for the last 7 days
+    const dailyActivity = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const start = new Date(d.setHours(0, 0, 0, 0));
+      const end = new Date(d.setHours(23, 59, 59, 999));
+      
+      const counts = await Promise.all([
+        prisma.course.count({ where: { createdAt: { gte: start, lt: end } } }),
+        prisma.event.count({ where: { createdAt: { gte: start, lt: end } } }),
+        prisma.volunteerHour.count({ where: { createdAt: { gte: start, lt: end } } })
+      ]);
+
+      dailyActivity.push({
+        day: d.toLocaleString('default', { weekday: 'short' }),
+        courses: counts[0],
+        events: counts[1],
+        volunteers: counts[2]
+      });
+    }
+
+    const [
+      totalUsers,
+      totalBusinesses,
+      totalCourses,
+      totalEvents,
+      totalVolunteers,
+      totalSponsorships,
+      roleDistribution,
+      recentUsersRaw,
+      pendingBusinesses,
+      unpublishedCourses,
+      pendingSponsorships
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.business.count(),
+      prisma.course.count(),
+      prisma.event.count(),
+      prisma.volunteer.count(),
+      prisma.sponsorship.aggregate({ _sum: { amount: true }, where: { status: 'APPROVED' } }),
+      prisma.user.groupBy({ by: ['role'], _count: { role: true } }),
+      prisma.user.findMany({ take: 5, orderBy: { createdAt: 'desc' }, select: { id: true, firstName: true, lastName: true, email: true, role: true, createdAt: true } }),
+      prisma.business.findMany({ where: { verificationStatus: 'PENDING' }, take: 5, include: { user: true } }),
+      prisma.course.findMany({ where: { isPublished: false }, take: 5 }),
+      prisma.sponsorship.findMany({ where: { status: 'PENDING' }, take: 5, include: { business: true, project: true } })
+    ]);
+
+    // Format Role Distribution
+    const roleMap = {
+      BUSINESS: { name: 'Business', color: '#8884d8' },
+      VOLUNTEER: { name: 'Volunteer', color: '#82ca9d' },
+      LEARNER: { name: 'Learner', color: '#ffc658' },
+      COMMUNITY_MEMBER: { name: 'Community', color: '#ff8042' },
+      ADMIN: { name: 'Admin', color: '#000000' }
+    };
+
+    const userRoleDistribution = roleDistribution.map(r => ({
+      name: roleMap[r.role]?.name || r.role,
+      value: r._count.role,
+      color: roleMap[r.role]?.color || '#cccccc'
+    }));
+
+    // Consolidate Pending Approvals
+    const approvals = [];
+    pendingBusinesses.forEach(b => approvals.push({
+      id: `biz-${b.id}`,
+      type: 'Business Verification',
+      name: b.companyName,
+      requestor: `${b.user?.firstName} ${b.user?.lastName}`,
+      date: b.createdAt.toISOString().split('T')[0],
+      priority: 'high'
+    }));
+    unpublishedCourses.forEach(c => approvals.push({
+      id: `course-${c.id}`,
+      type: 'Course Review',
+      name: c.title,
+      requestor: 'Instructor',
+      date: c.createdAt.toISOString().split('T')[0],
+      priority: 'medium'
+    }));
+    pendingSponsorships.forEach(s => approvals.push({
+      id: `spon-${s.id}`,
+      type: 'Sponsorship Approval',
+      name: s.project?.title,
+      requestor: s.business?.companyName,
+      date: s.sponsoredAt.toISOString().split('T')[0],
+      priority: 'medium'
+    }));
+
+    // Calculate changes (simple mock for now based on last month)
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const [prevUsers, prevBiz] = await Promise.all([
+      prisma.user.count({ where: { createdAt: { lt: lastMonthStart } } }),
+      prisma.business.count({ where: { createdAt: { lt: lastMonthStart } } })
+    ]);
+
+    const calculateChange = (current, previous) => {
+      if (!previous) return '+100%';
+      const change = ((current - previous) / previous) * 100;
+      return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+    };
+
+    return {
+      stats: [
+        { title: 'Total Users', value: totalUsers.toLocaleString(), change: calculateChange(totalUsers, prevUsers), icon: 'Users', color: 'bg-blue-500' },
+        { title: 'Businesses', value: totalBusinesses.toLocaleString(), change: calculateChange(totalBusinesses, prevBiz), icon: 'Building2', color: 'bg-secondary-500' },
+        { title: 'Courses', value: totalCourses.toLocaleString(), change: '+5.4%', icon: 'BookOpen', color: 'bg-green-500' },
+        { title: 'Events', value: totalEvents.toLocaleString(), change: '+2.1%', icon: 'Calendar', color: 'bg-primary-500' },
+        { title: 'Volunteers', value: totalVolunteers.toLocaleString(), change: '+8.7%', icon: 'Heart', color: 'bg-pink-500' },
+        { title: 'Revenue', value: `$${(totalSponsorships._sum.amount || 0).toLocaleString()}`, change: '+12.3%', icon: 'DollarSign', color: 'bg-secondary-500' }
+      ],
+      recentUsers: recentUsersRaw.map(u => ({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        status: 'active', // Should eventually be a field in User
+        joined: u.createdAt.toISOString().split('T')[0]
+      })),
+      pendingApprovals: approvals.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5),
+      userGrowthData: userGrowthTrend,
+      userRoleDistribution,
+      activityData: dailyActivity
+    };
+  } catch (error) {
+    console.error('Dashboard Stats Error:', error);
+    reply.status(500).send({ error: 'Failed to fetch dashboard stats' });
+  }
+});
+
+fastify.get('/admin/analytics', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  try {
+    const now = new Date();
+    // Generate the last 6 months as labels
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: d.toLocaleString('default', { month: 'short' }) });
+    }
+
+    // Helper: count records created in a given month (use dateField for models without createdAt)
+    const countInMonth = async (model, year, month, dateField = 'createdAt') => {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 1);
+      return model.count({ where: { [dateField]: { gte: start, lt: end } } });
+    };
+
+    // Build time-series data for Users, Enrollments, Events, Forum Posts
+    const userGrowth = await Promise.all(months.map(m => countInMonth(prisma.user, m.year, m.month)));
+    const enrollmentGrowth = await Promise.all(months.map(m => countInMonth(prisma.enrollment, m.year, m.month, 'enrolledAt')));
+    const eventGrowth = await Promise.all(months.map(m => countInMonth(prisma.event, m.year, m.month)));
+    const forumGrowth = await Promise.all(months.map(m => countInMonth(prisma.forumPost, m.year, m.month)));
+    const postGrowth = await Promise.all(months.map(m => countInMonth(prisma.post, m.year, m.month)));
+
+    // Overall totals
+    const [
+      totalUsers,
+      totalBusinesses,
+      totalCourses,
+      totalEnrollments,
+      totalEvents,
+      totalEventRegistrations,
+      totalForumPosts,
+      totalCommunityPosts,
+      totalCertificates,
+      totalConnections,
+      roleDistribution,
+      coursesByCategory,
+      topCourses,
+      businessesByIndustry
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.business.count(),
+      prisma.course.count(),
+      prisma.enrollment.count(),
+      prisma.event.count(),
+      prisma.eventRegistration.count(),
+      prisma.forumPost.count(),
+      prisma.post.count(),
+      prisma.certificate.count(),
+      prisma.connection.count({ where: { status: 'ACCEPTED' } }),
+      prisma.user.groupBy({ by: ['role'], _count: { role: true } }),
+      prisma.course.groupBy({ by: ['category'], _count: { category: true }, orderBy: { _count: { category: 'desc' } }, take: 6 }),
+      prisma.course.findMany({ select: { id: true, title: true, _count: { select: { enrollments: true } } }, orderBy: { enrollments: { _count: 'desc' } }, take: 5 }),
+      prisma.business.groupBy({ by: ['industry'], _count: { industry: true }, orderBy: { _count: { industry: 'desc' } }, take: 6 })
+    ]);
+
+    // Compute prev month vs this month user growth %
+    const thisMonthUsers = userGrowth[5];
+    const lastMonthUsers = userGrowth[4] || 1;
+    const userGrowthPct = lastMonthUsers ? Math.round(((thisMonthUsers - lastMonthUsers) / lastMonthUsers) * 100) : 0;
+
+    const thisMonthEnrollments = enrollmentGrowth[5];
+    const lastMonthEnrollments = enrollmentGrowth[4] || 1;
+    const enrollmentGrowthPct = lastMonthEnrollments ? Math.round(((thisMonthEnrollments - lastMonthEnrollments) / lastMonthEnrollments) * 100) : 0;
+
+    return {
+      overview: {
+        totalUsers,
+        totalBusinesses,
+        totalCourses,
+        totalEnrollments,
+        totalEvents,
+        totalEventRegistrations,
+        totalForumPosts,
+        totalCommunityPosts,
+        totalCertificates,
+        totalConnections,
+        userGrowthPct,
+        enrollmentGrowthPct
+      },
+      timeSeries: {
+        labels: months.map(m => m.label),
+        users: userGrowth,
+        enrollments: enrollmentGrowth,
+        events: eventGrowth,
+        forumPosts: forumGrowth,
+        communityPosts: postGrowth
+      },
+      roleDistribution: roleDistribution.map(r => ({ role: r.role, count: r._count.role })),
+      coursesByCategory: coursesByCategory.map(c => ({ category: c.category || 'Uncategorized', count: c._count.category })),
+      topCourses: topCourses.map(c => ({ id: c.id, title: c.title, enrollments: c._count.enrollments })),
+      businessesByIndustry: businessesByIndustry.map(b => ({ industry: b.industry || 'Other', count: b._count.industry }))
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch analytics data' });
+  }
+});
+
+// Create a volunteer task
+fastify.post('/admin/volunteer-tasks', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { title, description, project, startDate, endDate, hours, businessId } = request.body;
+
+  try {
+    const task = await prisma.volunteerTask.create({
+      data: {
+        title,
+        description,
+        project,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        hours: parseInt(hours) || 0,
+        businessId: businessId || null
+      }
+    });
+
+    return task;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create volunteer task' });
+  }
+});
+
+// Update a volunteer task
+fastify.put('/admin/volunteer-tasks/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, description, project, status, startDate, endDate, hours } = request.body;
+
+  try {
+    const task = await prisma.volunteerTask.update({
+      where: { id },
+      data: {
+        ...(title && { title }),
+        ...(description !== undefined && { description }),
+        ...(project !== undefined && { project }),
+        ...(status && { status }),
+        ...(startDate && { startDate: new Date(startDate) }),
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(hours !== undefined && { hours: parseInt(hours) })
+      }
+    });
+
+    return task;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update volunteer task' });
+  }
+});
+
+// Delete a volunteer task
+fastify.delete('/admin/volunteer-tasks/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    await prisma.$transaction([
+      prisma.volunteerAssignment.deleteMany({ where: { taskId: id } }),
+      prisma.volunteerHour.deleteMany({ where: { taskId: id } }),
+      prisma.volunteerTask.delete({ where: { id } })
+    ]);
+
+    return { message: 'Volunteer task deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete volunteer task' });
   }
 });
 

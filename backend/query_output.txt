@@ -1,0 +1,75 @@
+Error: PrismaClientValidationError: 
+Invalid `prisma.volunteerTask.findMany()` invocation in
+/Users/apple/Desktop/Projects/Diversity/backend/test_query.js:6:46
+
+  3 
+  4 async function main() {
+  5   try {
+→ 6     const tasks = await prisma.volunteerTask.findMany({
+          include: {
+            business: {
+              select: {
+                name: true,
+                ~~~~
+        ?       id?: true,
+        ?       userId?: true,
+        ?       companyName?: true,
+        ?       companyEmail?: true,
+        ?       companyPhone?: true,
+        ?       website?: true,
+        ?       industry?: true,
+        ?       size?: true,
+        ?       description?: true,
+        ?       logo?: true,
+        ?       address?: true,
+        ?       city?: true,
+        ?       country?: true,
+        ?       diversityCommitment?: true,
+        ?       badgeLevel?: true,
+        ?       verificationStatus?: true,
+        ?       verifiedAt?: true,
+        ?       csrReport?: true,
+        ?       createdAt?: true,
+        ?       updatedAt?: true,
+        ?       user?: true,
+        ?       corporateVolunteering?: true,
+        ?       diversityPledge?: true,
+        ?       sponsorships?: true,
+        ?       testimonials?: true,
+        ?       employmentNotices?: true,
+        ?       employees?: true,
+        ?       courses?: true,
+        ?       volunteerTasks?: true,
+        ?       _count?: true
+              }
+            },
+            volunteer: {
+              select: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                assignments: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: "desc"
+          }
+        })
+
+Unknown field `name` for select statement on model `Business`. Available options are marked with ?.
+    at Nn (/Users/apple/Desktop/Projects/Diversity/backend/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at ei.handleRequestError (/Users/apple/Desktop/Projects/Diversity/backend/node_modules/@prisma/client/runtime/library.js:121:6911)
+    at ei.handleAndLogRequestError (/Users/apple/Desktop/Projects/Diversity/backend/node_modules/@prisma/client/runtime/library.js:121:6593)
+    at ei.request (/Users/apple/Desktop/Projects/Diversity/backend/node_modules/@prisma/client/runtime/library.js:121:6300)
+    at async a (/Users/apple/Desktop/Projects/Diversity/backend/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async main (/Users/apple/Desktop/Projects/Diversity/backend/test_query.js:6:19) {
+  clientVersion: '6.19.2'
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
     Users,
@@ -33,6 +33,8 @@ import {
 } from 'lucide-react'
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
+import { api } from '@/lib/api'
+import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
@@ -70,159 +72,52 @@ import {
     Legend
 } from 'recharts'
 
-const stats = [
-    {
-        title: 'Total Users',
-        value: '24,567',
-        change: '+12.3%',
-        icon: Users,
-        color: 'bg-blue-500',
-    },
-    {
-        title: 'Businesses',
-        value: '1,234',
-        change: '+8.2%',
-        icon: Building2,
-        color: 'bg-secondary-500',
-    },
-    {
-        title: 'Courses',
-        value: '156',
-        change: '+23.1%',
-        icon: BookOpen,
-        color: 'bg-green-500',
-    },
-    {
-        title: 'Events',
-        value: '89',
-        change: '+15.7%',
-        icon: Calendar,
-        color: 'bg-primary-500',
-    },
-    {
-        title: 'Volunteers',
-        value: '5,678',
-        change: '+18.4%',
-        icon: Heart,
-        color: 'bg-pink-500',
-    },
-    {
-        title: 'Revenue',
-        value: '$45,678',
-        change: '+32.1%',
-        icon: DollarSign,
-        color: 'bg-secondary-500',
-    },
-]
-
-const recentUsers = [
-    {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
-        role: 'Business',
-        status: 'active',
-        joined: '2024-01-15',
-    },
-    {
-        id: 2,
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        role: 'Volunteer',
-        status: 'active',
-        joined: '2024-01-14',
-    },
-    {
-        id: 3,
-        name: 'Bob Johnson',
-        email: 'bob@example.com',
-        role: 'Learner',
-        status: 'pending',
-        joined: '2024-01-13',
-    },
-    {
-        id: 4,
-        name: 'Alice Brown',
-        email: 'alice@example.com',
-        role: 'Community',
-        status: 'active',
-        joined: '2024-01-12',
-    },
-    {
-        id: 5,
-        name: 'Charlie Wilson',
-        email: 'charlie@example.com',
-        role: 'Business',
-        status: 'suspended',
-        joined: '2024-01-11',
-    },
-]
-
-const pendingApprovals = [
-    {
-        id: 1,
-        type: 'Business Verification',
-        name: 'Tech Corp Inc.',
-        requestor: 'John Smith',
-        date: '2024-01-15',
-        priority: 'high',
-    },
-    {
-        id: 2,
-        type: 'Course Review',
-        name: 'Inclusive Leadership',
-        requestor: 'Dr. Sarah Johnson',
-        date: '2024-01-14',
-        priority: 'medium',
-    },
-    {
-        id: 3,
-        type: 'Event Approval',
-        name: 'Diversity Summit 2024',
-        requestor: 'Mike Brown',
-        date: '2024-01-13',
-        priority: 'low',
-    },
-    {
-        id: 4,
-        type: 'Badge Request',
-        name: 'Diversity Champion',
-        requestor: 'ABC Company',
-        date: '2024-01-12',
-        priority: 'medium',
-    },
-]
-
-const userGrowthData = [
-    { month: 'Jan', users: 12000, businesses: 800, volunteers: 5000 },
-    { month: 'Feb', users: 13500, businesses: 850, volunteers: 5800 },
-    { month: 'Mar', users: 15000, businesses: 920, volunteers: 6500 },
-    { month: 'Apr', users: 16800, businesses: 1000, volunteers: 7200 },
-    { month: 'May', users: 18500, businesses: 1100, volunteers: 8000 },
-    { month: 'Jun', users: 20500, businesses: 1180, volunteers: 8900 },
-    { month: 'Jul', users: 22500, businesses: 1250, volunteers: 9800 },
-    { month: 'Aug', users: 24567, businesses: 1234, volunteers: 5678 },
-]
-
-const userRoleDistribution = [
-    { name: 'Business', value: 1234, color: '#8884d8' },
-    { name: 'Volunteer', value: 5678, color: '#82ca9d' },
-    { name: 'Learner', value: 8923, color: '#ffc658' },
-    { name: 'Community', value: 8732, color: '#ff8042' },
-]
-
-const activityData = [
-    { day: 'Mon', courses: 45, events: 23, volunteers: 67 },
-    { day: 'Tue', courses: 52, events: 28, volunteers: 72 },
-    { day: 'Wed', courses: 48, events: 31, volunteers: 85 },
-    { day: 'Thu', courses: 61, events: 35, volunteers: 78 },
-    { day: 'Fri', courses: 55, events: 42, volunteers: 92 },
-    { day: 'Sat', courses: 38, events: 55, volunteers: 110 },
-    { day: 'Sun', courses: 25, events: 48, volunteers: 95 },
-]
+// Icon mapping for stats
+const IconMap: Record<string, any> = {
+    Users,
+    Building2,
+    BookOpen,
+    Calendar,
+    Heart,
+    DollarSign,
+}
 
 export default function AdminDashboard() {
     const [timeframe, setTimeframe] = useState('week')
+    const [loading, setLoading] = useState(true)
+    const [data, setData] = useState<any>(null)
+
+    const fetchDashboardData = async () => {
+        try {
+            setLoading(true)
+            const response = await api.get('/admin/dashboard-stats')
+            setData(response)
+        } catch (error) {
+            console.error('Failed to fetch dashboard data:', error)
+            toast.error('Failed to load dashboard statistics')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchDashboardData()
+    }, [])
+
+    if (loading || !data) {
+        return (
+            <DashboardLayout role="ADMIN">
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="flex flex-col items-center gap-4">
+                        <RefreshCw className="w-10 h-10 text-primary-600 animate-spin" />
+                        <p className="text-gray-500 animate-pulse font-medium">Loading dashboard stats...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        )
+    }
+
+    const { stats, recentUsers, pendingApprovals, userGrowthData, userRoleDistribution, activityData } = data
 
     return (
         <DashboardLayout role="ADMIN">
@@ -240,7 +135,11 @@ export default function AdminDashboard() {
                             <Download className="w-4 h-4 mr-2" />
                             Export Report
                         </Button>
-                        <Button size="sm" className="bg-primary-600 text-white">
+                        <Button 
+                            size="sm" 
+                            className="bg-primary-600 text-white"
+                            onClick={fetchDashboardData}
+                        >
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Refresh Data
                         </Button>
@@ -249,8 +148,8 @@ export default function AdminDashboard() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                    {stats.map((stat, index) => {
-                        const Icon = stat.icon
+                    {stats.map((stat: any, index: number) => {
+                        const Icon = IconMap[stat.icon] || Activity
                         return (
                             <motion.div
                                 key={stat.title}
@@ -350,7 +249,7 @@ export default function AdminDashboard() {
                                             dataKey="value"
                                             label
                                         >
-                                            {userRoleDistribution.map((entry, index) => (
+                                            {userRoleDistribution.map((entry: any, index: number) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
@@ -402,7 +301,7 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {pendingApprovals.map((item) => (
+                                {pendingApprovals.map((item: any) => (
                                     <div key={item.id} className="flex items-start justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                         <div className="flex gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${item.priority === 'high' ? 'bg-red-100' :
@@ -459,12 +358,12 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {recentUsers.map((user) => (
+                                {recentUsers.map((user: any) => (
                                     <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                         <div className="flex items-center gap-3">
                                             <Avatar>
                                                 <AvatarFallback className="bg-secondary-100 text-secondary-600">
-                                                    {user.name.split(' ').map(n => n[0]).join('')}
+                                                    {user.name.split(' ').map((n: string) => n[0]).join('')}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div>

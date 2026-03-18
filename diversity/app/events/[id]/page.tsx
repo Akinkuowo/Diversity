@@ -250,7 +250,15 @@ export default function EventDetailPage() {
                                         </div>
                                     </div>
 
-                                    {!isRegistered ? (
+                                    {user?.role === 'ADMIN' ? (
+                                        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-center space-y-2">
+                                            <div className="flex items-center justify-center gap-2 font-bold uppercase tracking-wider text-sm">
+                                                <Shield className="w-5 h-5 text-amber-500" />
+                                                Admin View Mode
+                                            </div>
+                                            <p className="text-xs font-medium">As an administrator, you cannot register for community events. You can manage this event using the tools on the main events page.</p>
+                                        </div>
+                                    ) : !isRegistered ? (
                                         <Button
                                             className="w-full bg-primary-600 hover:bg-primary-700 text-white py-6 rounded-2xl text-lg font-bold shadow-lg shadow-primary-600/20"
                                             onClick={handleRegister}

@@ -5,10 +5,18 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Mail, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useToast } from '@/components/ui/use-toast'
 
 export default function VerifyEmail() {
+  return (
+    <Suspense fallback={<div className="min-h-[80vh] flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"/></div>}>
+      <VerifyEmailContent />
+    </Suspense>
+  )
+}
+
+function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email')
   const [isResending, setIsResending] = useState(false)

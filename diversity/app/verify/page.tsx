@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -9,6 +9,14 @@ import { Button } from '@/components/ui/button'
 import Navbar from '@/components/navbar'
 
 export default function VerifyTokenPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 text-secondary-600 animate-spin" /></div>}>
+      <VerifyTokenContent />
+    </Suspense>
+  )
+}
+
+function VerifyTokenContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get('token')

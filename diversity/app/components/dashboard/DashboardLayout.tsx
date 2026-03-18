@@ -207,8 +207,8 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Volunteers', href: '/admin/volunteers', icon: Heart },
             { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
             { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
-            { name: 'Resources', href: '/resources', icon: BookOpen },
-            { name: 'Billing', href: '/billing', icon: CreditCard },
+            { name: 'Resources', href: '/admin/resources', icon: BookOpen },
+            { name: 'Billing', href: '/admin/billing', icon: CreditCard },
             { name: 'Settings', href: '/settings', icon: Settings },
         ],
         BUSINESS: [

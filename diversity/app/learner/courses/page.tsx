@@ -259,7 +259,14 @@ export default function LearnerCoursesPage() {
                                             </CardContent>
                                             <CardFooter className="p-6 pt-0">
                                                 <Button 
-                                                    onClick={() => router.push(`/learner/courses/${enr.course.id}`)}
+                                                    onClick={() => {
+                                                        const certId = enr.course.certificates?.[0]?.id;
+                                                        if (enr.progress === 100 && certId) {
+                                                            router.push(`/certificates/${certId}`)
+                                                        } else {
+                                                            router.push(`/learner/courses/${enr.course.id}`)
+                                                        }
+                                                    }}
                                                     className={cn(
                                                         "w-full rounded-2xl h-12 font-bold transition-all shadow-md group-hover:shadow-blue-500/20",
                                                         enr.progress === 100 

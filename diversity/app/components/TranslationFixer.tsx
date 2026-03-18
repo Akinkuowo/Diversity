@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
-export default function TranslationFixer() {
+function TranslationFixerContent() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
 
@@ -53,4 +53,12 @@ export default function TranslationFixer() {
     }, [pathname, searchParams])
 
     return null
+}
+
+export default function TranslationFixer() {
+    return (
+        <Suspense fallback={null}>
+            <TranslationFixerContent />
+        </Suspense>
+    )
 }
