@@ -24,6 +24,7 @@ import {
     BookOpen,
     Briefcase,
     Heart,
+    AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +34,7 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from '@/components/ui/dialog'
 import {
     Tabs,
@@ -102,6 +104,10 @@ export default function UserManagement() {
     const [userDetails, setUserDetails] = useState<any>(null)
     const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [userToDeleteId, setUserToDeleteId] = useState<string | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+
     const fetchUsers = useCallback(async () => {
         setIsLoading(true)
         try {
@@ -144,17 +150,25 @@ export default function UserManagement() {
         }
     }
 
-    const handleDeleteUser = async (userId: string) => {
-        if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return
-
+    const handleDeleteUser = async () => {
+        if (!userToDeleteId) return
+        
+        setIsDeleting(true)
         try {
-            await api.delete(`/admin/users/${userId}`)
-            toast.success('User deleted')
+            await api.delete(`/admin/users/${userToDeleteId}`)
+            toast.success('User deleted successfully', {
+                description: 'The user and all related records have been removed.'
+            })
+            setIsDeleteDialogOpen(false)
+            setUserToDeleteId(null)
             fetchUsers()
         } catch (error: any) {
+            console.error('Error deleting user:', error)
             toast.error('Failed to delete user', {
                 description: error.response?.data?.message || 'Operation failed.',
             })
+        } finally {
+            setIsDeleting(false)
         }
     }
     const handleViewProfile = async (userId: string) => {
@@ -325,7 +339,7 @@ export default function UserManagement() {
                                                         </DropdownMenuItem>
                                                     ))}
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-red-600">
+                                                    <DropdownMenuItem onClick={() => { setUserToDeleteId(user.id); setIsDeleteDialogOpen(true); }} className="text-red-600">
                                                         <Trash2 className="w-4 h-4 mr-2" />
                                                         Delete User
                                                     </DropdownMenuItem>
@@ -647,6 +661,57 @@ export default function UserManagement() {
                             No user data found.
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Professional Deletion Dialog */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className="bg-red-100 p-3 rounded-full">
+                                <AlertTriangle className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl">Delete User Account?</DialogTitle>
+                                <DialogDescription className="text-gray-500 mt-1">
+                                    This action is permanent and cannot be undone.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+                    
+                    <div className="py-4">
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                            Deleting this user will permanently remove their profile, business records, achievements, and all other associated data from the platform.
+                        </p>
+                    </div>
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                            disabled={isDeleting}
+                            className="flex-1 sm:flex-none"
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            variant="destructive" 
+                            onClick={handleDeleteUser}
+                            disabled={isDeleting}
+                            className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 font-bold"
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Delete Account'
+                            )}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

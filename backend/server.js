@@ -2559,7 +2559,12 @@ fastify.get('/businesses/me/courses', async (request, reply) => {
     if (!business) return reply.code(403).send({ message: 'Unauthorized' });
 
     const courses = await prisma.course.findMany({
-      where: { authorBusinessId: business.id },
+      where: {
+        OR: [
+          { type: 'PUBLIC', isPublished: true },
+          { authorBusinessId: business.id }
+        ]
+      },
       include: {
         _count: {
           select: { enrollments: true, modules: true }
@@ -2596,9 +2601,10 @@ fastify.post('/businesses/me/courses', async (request, reply) => {
         category: category || 'Internal Training',
         tags: tags || [],
         thumbnail,
-        authorBusinessId: business.id,
-        type: 'INTERNAL',
-        isPublished: true
+        price: 0,
+        isPublished: false,
+        type: 'PUBLIC',
+        authorBusinessId: business.id
       }
     });
 
@@ -4714,16 +4720,467 @@ fastify.delete('/admin/users/:id', async (request, reply) => {
   const { id } = request.params;
 
   try {
-    // Delete user (Prisma usually handles related records if configured to cascade, 
-    // otherwise we might need to delete them manually or set foreign keys to NULL/CASCADE in schema)
-    await prisma.user.delete({
-      where: { id }
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete simple dependent records (userId field)
+      await tx.userProfile.deleteMany({ where: { userId: id } });
+      await tx.business.deleteMany({ where: { userId: id } });
+      await tx.learner.deleteMany({ where: { userId: id } });
+      await tx.volunteer.deleteMany({ where: { userId: id } });
+      await tx.enrollment.deleteMany({ where: { userId: id } });
+      await tx.userAchievement.deleteMany({ where: { userId: id } });
+      await tx.certificate.deleteMany({ where: { userId: id } });
+      await tx.notificationPreferences.deleteMany({ where: { userId: id } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.userSession.deleteMany({ where: { userId: id } });
+      await tx.postLike.deleteMany({ where: { userId: id } });
+      await tx.postComment.deleteMany({ where: { userId: id } });
+      await tx.post.deleteMany({ where: { userId: id } });
+      await tx.forumLike.deleteMany({ where: { userId: id } });
+      await tx.quizResult.deleteMany({ where: { userId: id } });
+      await tx.eventRegistration.deleteMany({ where: { userId: id } });
+      await tx.eventFeedback.deleteMany({ where: { userId: id } });
+      await tx.testimonial.deleteMany({ where: { userId: id } });
+      await tx.employmentApplication.deleteMany({ where: { userId: id } });
+      await tx.lessonCompletion.deleteMany({ where: { userId: id } });
+      
+      // 2. Delete dependent records with different field names
+      await tx.forumComment.deleteMany({ where: { authorId: id } });
+      await tx.forumPost.deleteMany({ where: { authorId: id } });
+      await tx.announcement.deleteMany({ where: { authorId: id } });
+      await tx.resource.deleteMany({ where: { authorId: id } });
+      await tx.event.deleteMany({ where: { organizerId: id } });
+      await tx.message.deleteMany({ where: { senderId: id } });
+      await tx.corporateVolunteering.deleteMany({ where: { volunteerId: id } });
+
+      // 3. Handle connections (both sides)
+      await tx.connection.deleteMany({
+        where: {
+          OR: [{ requesterId: id }, { recipientId: id }]
+        }
+      });
+
+      // 4. Finally delete the user
+      await tx.user.delete({
+        where: { id }
+      });
     });
 
-    return { message: 'User deleted successfully' };
+    return { message: 'User and all related records deleted successfully' };
   } catch (error) {
     fastify.log.error(error);
-    return reply.code(500).send({ message: 'Failed to delete user' });
+    return reply.code(500).send({ message: 'Failed to delete user. Ensure all dependencies are handled.' });
+  }
+});
+
+// --- ADMIN BUSINESS MANAGEMENT ---
+
+// Get all businesses for admin
+fastify.get('/admin/businesses', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { industry, status, badge, search, page = 1, limit = 10 } = request.query;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const take = parseInt(limit);
+
+  try {
+    const where = {};
+
+    if (industry && industry !== 'all') {
+      where.industry = industry;
+    }
+    if (status && status !== 'all') {
+      where.verificationStatus = status;
+    }
+    if (badge && badge !== 'all') {
+      where.badgeLevel = badge;
+    }
+    if (search) {
+      where.OR = [
+        { companyName: { contains: search, mode: 'insensitive' } },
+        { companyEmail: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const [businesses, total] = await Promise.all([
+      prisma.business.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              profile: { select: { avatar: true } }
+            }
+          },
+          _count: {
+            select: { testimonials: true, corporateVolunteering: true, courses: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take
+      }),
+      prisma.business.count({ where })
+    ]);
+
+    return {
+      businesses,
+      total,
+      pages: Math.ceil(total / take)
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Update business details (status, badge, etc.)
+fastify.patch('/admin/businesses/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { verificationStatus, badgeLevel } = request.body;
+
+  try {
+    const updatedBusiness = await prisma.business.update({
+      where: { id },
+      data: {
+        ...(verificationStatus && { verificationStatus }),
+        ...(badgeLevel && { badgeLevel }),
+        ...(verificationStatus === 'VERIFIED' && { verifiedAt: new Date() })
+      },
+      include: {
+        user: {
+          select: { firstName: true, email: true }
+        }
+      }
+    });
+
+    return updatedBusiness;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update business' });
+  }
+});
+
+// --- ADMIN COURSE MANAGEMENT ---
+
+// Get all courses for admin
+fastify.get('/admin/courses', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { category, level, search, status, page = 1, limit = 10 } = request.query;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const take = parseInt(limit);
+
+  try {
+    const where = {};
+
+    if (category && category !== 'all') {
+      where.category = category;
+    }
+    if (level && level !== 'all') {
+      where.level = level;
+    }
+    if (status && status !== 'all') {
+      where.isPublished = status === 'published';
+    }
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const [courses, total] = await Promise.all([
+      prisma.course.findMany({
+        where,
+        include: {
+          authorBusiness: {
+            select: { companyName: true, logo: true }
+          },
+          _count: {
+            select: { enrollments: true, modules: true, certificates: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take
+      }),
+      prisma.course.count({ where })
+    ]);
+
+    return {
+      courses,
+      total,
+      pages: Math.ceil(total / take)
+    };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Internal server error' });
+  }
+});
+
+// Create a new course (Admin)
+fastify.post('/admin/courses', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { title, description, level, duration, category, tags, thumbnail, videoUrl, price, isPublished } = request.body;
+
+  try {
+    const course = await prisma.course.create({
+      data: {
+        title,
+        description,
+        level: level || 'BEGINNER',
+        duration: parseInt(duration) || 0,
+        category: category || 'General',
+        tags: tags || [],
+        thumbnail,
+        videoUrl,
+        price: parseFloat(price) || 0,
+        isPublished: isPublished ?? false,
+        type: 'PUBLIC'
+      }
+    });
+
+    return course;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create course' });
+  }
+});
+
+// Update an existing course (Admin)
+fastify.put('/admin/courses/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, description, level, duration, category, tags, thumbnail, videoUrl, price, isPublished } = request.body;
+
+  try {
+    const updatedCourse = await prisma.course.update({
+      where: { id },
+      data: {
+        ...(title && { title }),
+        ...(description && { description }),
+        ...(level && { level }),
+        ...(duration !== undefined && { duration: parseInt(duration) }),
+        ...(category && { category }),
+        ...(tags && { tags }),
+        ...(thumbnail && { thumbnail }),
+        ...(videoUrl !== undefined && { videoUrl }),
+        ...(price !== undefined && { price: parseFloat(price) }),
+        ...(isPublished !== undefined && { isPublished })
+      }
+    });
+
+    return updatedCourse;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update course' });
+  }
+});
+
+// --- ADMIN CURRICULUM MANAGEMENT ---
+
+// Get full curriculum (modules + lessons) for a course
+fastify.get('/admin/courses/:id/curriculum', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    const curriculum = await prisma.courseModule.findMany({
+      where: { courseId: id },
+      include: {
+        lessons: {
+          orderBy: { order: 'asc' }
+        }
+      },
+      orderBy: { order: 'asc' }
+    });
+
+    return curriculum;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch curriculum' });
+  }
+});
+
+// Create a new module
+fastify.post('/admin/courses/:id/modules', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, description, order } = request.body;
+
+  try {
+    const module = await prisma.courseModule.create({
+      data: {
+        courseId: id,
+        title,
+        description,
+        order: parseInt(order) || 0
+      }
+    });
+
+    return module;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create module' });
+  }
+});
+
+// Update a module
+fastify.put('/admin/modules/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, description, order } = request.body;
+
+  try {
+    const updatedModule = await prisma.courseModule.update({
+      where: { id },
+      data: {
+        ...(title && { title }),
+        ...(description !== undefined && { description }),
+        ...(order !== undefined && { order: parseInt(order) })
+      }
+    });
+
+    return updatedModule;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update module' });
+  }
+});
+
+// Delete a module
+fastify.delete('/admin/modules/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    await prisma.$transaction([
+      prisma.lesson.deleteMany({ where: { moduleId: id } }),
+      prisma.courseModule.delete({ where: { id } })
+    ]);
+
+    return { message: 'Module deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete module' });
+  }
+});
+
+// Create a new lesson
+fastify.post('/admin/modules/:id/lessons', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, content, videoUrl, duration, order, isPreview } = request.body;
+
+  try {
+    const lesson = await prisma.lesson.create({
+      data: {
+        moduleId: id,
+        title,
+        content,
+        videoUrl,
+        duration: parseInt(duration) || 0,
+        order: parseInt(order) || 0,
+        isPreview: isPreview ?? false
+      }
+    });
+
+    return lesson;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to create lesson' });
+  }
+});
+
+// Update a lesson
+fastify.put('/admin/lessons/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+  const { title, content, videoUrl, duration, order, isPreview } = request.body;
+
+  try {
+    const updatedLesson = await prisma.lesson.update({
+      where: { id },
+      data: {
+        ...(title && { title }),
+        ...(content !== undefined && { content }),
+        ...(videoUrl !== undefined && { videoUrl }),
+        ...(duration !== undefined && { duration: parseInt(duration) }),
+        ...(order !== undefined && { order: parseInt(order) }),
+        ...(isPreview !== undefined && { isPreview })
+      }
+    });
+
+    return updatedLesson;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to update lesson' });
+  }
+});
+
+// Delete a lesson
+fastify.delete('/admin/lessons/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    await prisma.lesson.delete({ where: { id } });
+    return { message: 'Lesson deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete lesson' });
+  }
+});
+
+// Delete a course (Admin)
+fastify.delete('/admin/courses/:id', async (request, reply) => {
+  const admin = await checkAdmin(request, reply);
+  if (!admin) return;
+
+  const { id } = request.params;
+
+  try {
+    // Delete related records that don't cascade automatically
+    await prisma.$transaction([
+      prisma.enrollment.deleteMany({ where: { courseId: id } }),
+      prisma.certificate.deleteMany({ where: { courseId: id } }),
+      prisma.quiz.deleteMany({ where: { courseId: id } }),
+      prisma.courseResource.deleteMany({ where: { courseId: id } }),
+      // Modules and Lessons might need manual deletion if not set to cascade in schema
+      prisma.course.delete({ where: { id } })
+    ]);
+
+    return { message: 'Course deleted successfully' };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to delete course' });
   }
 });
 
