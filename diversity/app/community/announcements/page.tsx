@@ -78,7 +78,7 @@ export default function AnnouncementsPage() {
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-8 pb-12">
                 {/* Hero section */}
                 <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#1e1b4b] p-8 md:p-14 text-white shadow-2xl">

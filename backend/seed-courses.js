@@ -1,97 +1,91 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function main() {
-    console.log('Seeding demo courses...');
+async function seed() {
+    console.log('Seeding courses...');
 
-    const courses = [
+    const coursesToSeed = [
         {
-            title: 'Inclusive Leadership Foundations',
-            description: 'Learn the core principles of inclusive leadership and how to build diverse teams that thrive.',
-            level: 'BEGINNER',
-            duration: 120,
-            category: 'Leadership',
-            tags: ['DEI', 'Management', 'Inclusion'],
-            isPublished: true,
-            type: 'PUBLIC'
-        },
-        {
-            title: 'Unconscious Bias in Recruitment',
-            description: 'Master strategies to identify and mitigate unconscious bias throughout the hiring process.',
-            level: 'INTERMEDIATE',
-            duration: 90,
-            category: 'Human Resources',
-            tags: ['Hiring', 'Bias', 'Diversity'],
-            isPublished: true,
-            type: 'PUBLIC'
-        },
-        {
-            title: 'Neurodiversity in the Workplace',
-            description: 'A comprehensive guide to understanding neurodivergence and creating an accommodating work environment.',
+            id: 'topic-1',
+            title: 'Cultural Awareness',
+            description: 'Deepen your understanding of different cultures in the workplace.',
             level: 'BEGINNER',
             duration: 60,
             category: 'Culture',
-            tags: ['Neurodiversity', 'Accessibility', 'Culture'],
+            tags: ['Culture', 'Diversity', 'Awareness'],
             isPublished: true,
             type: 'PUBLIC'
         },
         {
-            title: 'Advanced Cultural Competency',
-            description: 'Deep dive into cross-cultural communication and global DEI strategies for multinational organizations.',
-            level: 'ADVANCED',
-            duration: 180,
-            category: 'Communication',
-            tags: ['Global', 'Culture', 'DEI'],
-            isPublished: true,
-            type: 'PUBLIC'
-        },
-        {
-            title: 'Accessible Design Principles',
-            description: 'Learn how to design products and spaces that are accessible to everyone, regardless of ability.',
+            id: 'topic-2',
+            title: 'Workplace Inclusion',
+            description: 'Strategies for creating a truly inclusive environment.',
             level: 'INTERMEDIATE',
+            duration: 90,
+            category: 'Inclusion',
+            tags: ['Inclusion', 'Workplace', 'Strategy'],
+            isPublished: true,
+            type: 'PUBLIC'
+        },
+        {
+            id: 'topic-3',
+            title: 'Community Cohesion',
+            description: 'Building stronger, more unified communities.',
+            level: 'ADVANCED',
+            duration: 120,
+            category: 'Community',
+            tags: ['Community', 'Cohesion', 'Unity'],
+            isPublished: true,
+            type: 'PUBLIC'
+        },
+        {
+            id: 'topic-4',
+            title: 'Anti-racism Awareness',
+            description: 'Recognizing and dismantling systemic racism.',
+            level: 'INTERMEDIATE',
+            duration: 75,
+            category: 'Diversity',
+            tags: ['Anti-racism', 'Awareness', 'Social Justice'],
+            isPublished: true,
+            type: 'PUBLIC'
+        },
+        {
+            id: 'topic-5',
+            title: 'Bias Awareness',
+            description: 'Identifying and mitigating unconscious biases.',
+            level: 'BEGINNER',
+            duration: 45,
+            category: 'Psychology',
+            tags: ['Bias', 'Unconscious Bias', 'Awareness'],
+            isPublished: true,
+            type: 'PUBLIC'
+        },
+        {
+            id: 'topic-6',
+            title: 'Inclusive Leadership',
+            description: 'Leading with empathy and inclusivity.',
+            level: 'ADVANCED',
             duration: 150,
-            category: 'Design',
-            tags: ['Accessibility', 'UX', 'Design'],
+            category: 'Leadership',
+            tags: ['Leadership', 'Management', 'Inclusion'],
             isPublished: true,
             type: 'PUBLIC'
         }
     ];
 
-    for (const course of courses) {
-        const created = await prisma.course.upsert({
-            where: { id: `demo-${course.title.toLowerCase().replace(/\s+/g, '-')}` },
+    for (const course of coursesToSeed) {
+        await prisma.course.upsert({
+            where: { id: course.id },
             update: course,
-            create: {
-                id: `demo-${course.title.toLowerCase().replace(/\s+/g, '-')}`,
-                ...course
-            }
+            create: course
         });
-        console.log(`- Created course: ${created.title}`);
-
-        // Add some modules to each course
-        const moduleTitles = ['Introduction', 'Core Concepts', 'Practical Application', 'Assessment'];
-        for (let i = 0; i < moduleTitles.length; i++) {
-            await prisma.courseModule.upsert({
-                where: { id: `mod-${created.id}-${i}` },
-                update: {
-                    title: moduleTitles[i],
-                    order: i,
-                    courseId: created.id
-                },
-                create: {
-                    id: `mod-${created.id}-${i}`,
-                    title: moduleTitles[i],
-                    order: i,
-                    courseId: created.id
-                }
-            });
-        }
+        console.log(`Seeded course: ${course.title} (${course.id})`);
     }
 
     console.log('Seeding completed!');
 }
 
-main()
+seed()
     .catch((e) => {
         console.error(e);
         process.exit(1);

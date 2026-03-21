@@ -105,7 +105,7 @@ export default function ForumThreadPage() {
 
     if (isLoading) {
         return (
-            <DashboardLayout role={role}>
+            <DashboardLayout>
                 <div className="max-w-4xl mx-auto space-y-6">
                     <div className="h-10 w-24 bg-gray-100 dark:bg-slate-800 rounded-xl animate-pulse" />
                     <div className="h-64 bg-gray-100 dark:bg-slate-800 rounded-3xl animate-pulse" />
@@ -118,7 +118,7 @@ export default function ForumThreadPage() {
     if (!post) return null
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-4xl mx-auto space-y-8 pb-20">
                 {/* Navigation */}
                 <Link href="/forums">

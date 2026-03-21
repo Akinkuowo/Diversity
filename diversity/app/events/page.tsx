@@ -115,7 +115,7 @@ export default function EventsPage() {
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-8">
                 {/* Hero / Header */}
                 <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 to-[#006666] p-8 md:p-12 text-white shadow-xl">

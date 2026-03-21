@@ -199,7 +199,7 @@ export default function SettingsPage() {
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-5xl mx-auto space-y-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>

@@ -223,7 +223,7 @@ export default function BusinessDashboard() {
 
     if (loading) {
         return (
-            <DashboardLayout role="BUSINESS">
+            <DashboardLayout>
                 <div className="flex items-center justify-center h-[60vh]">
                     <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
                 </div>
@@ -233,7 +233,7 @@ export default function BusinessDashboard() {
 
     if (error || !data) {
         return (
-            <DashboardLayout role="BUSINESS">
+            <DashboardLayout>
                 <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
                     <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
                         <AlertCircle className="w-8 h-8 text-red-500" />
@@ -291,7 +291,7 @@ export default function BusinessDashboard() {
     const nextBadge = data.milestones?.find((m: any) => !m.completed)
 
     return (
-        <DashboardLayout role="BUSINESS">
+        <DashboardLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">

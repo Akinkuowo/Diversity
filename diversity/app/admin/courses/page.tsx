@@ -3,7 +3,7 @@ import CourseManagement from '@/app/components/admin/CourseManagement'
 
 export default function AdminCoursesPage() {
     return (
-        <DashboardLayout role="ADMIN">
+        <DashboardLayout>
             <CourseManagement />
         </DashboardLayout>
     )

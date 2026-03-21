@@ -35,7 +35,7 @@ export default function AdminResourcesPage() {
     }
 
     return (
-        <DashboardLayout role="ADMIN">
+        <DashboardLayout>
             <AdminResourceManagement />
         </DashboardLayout>
     )

@@ -95,7 +95,7 @@ export default function BusinessBadgePage() {
 
     if (isLoading) {
         return (
-            <DashboardLayout role="BUSINESS">
+            <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="animate-pulse text-gray-400 font-medium text-lg">Loading your achievements...</div>
                 </div>
@@ -130,7 +130,7 @@ export default function BusinessBadgePage() {
     const nextBadge = earnedCount < dynamicBadges.length ? dynamicBadges[earnedCount].name : 'Diversity Legend'
 
     return (
-        <DashboardLayout role="BUSINESS">
+        <DashboardLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">

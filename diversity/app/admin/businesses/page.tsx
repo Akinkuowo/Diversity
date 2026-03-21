@@ -3,7 +3,7 @@ import BusinessManagement from '@/app/components/admin/BusinessManagement'
 
 export default function AdminBusinessesPage() {
     return (
-        <DashboardLayout role="ADMIN">
+        <DashboardLayout>
             <BusinessManagement />
         </DashboardLayout>
     )

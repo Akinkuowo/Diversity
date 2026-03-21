@@ -269,7 +269,7 @@ export default function VolunteerDashboard() {
     }, [])
 
     return (
-        <DashboardLayout role="VOLUNTEER">
+        <DashboardLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">

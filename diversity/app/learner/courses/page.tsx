@@ -109,7 +109,7 @@ export default function LearnerCoursesPage() {
     )
 
     return (
-        <DashboardLayout role="LEARNER">
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-8">
                 {/* Header & Hero */}
                 <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 p-8 md:p-12 text-white shadow-2xl">

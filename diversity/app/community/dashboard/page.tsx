@@ -434,7 +434,7 @@ export default function CommunityDashboard() {
   ];
 
   return (
-    <DashboardLayout role="COMMUNITY_MEMBER">
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

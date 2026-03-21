@@ -115,7 +115,7 @@ export default function LearnerQuizzesPage() {
         const progress = ((currentQuestionIndex + 1) / activeQuiz.questions.length) * 100
 
         return (
-            <DashboardLayout role="LEARNER">
+            <DashboardLayout>
                 <div className="max-w-4xl mx-auto py-8 space-y-8">
                     {/* Quiz Progress Header */}
                     <div className="space-y-4">
@@ -227,7 +227,7 @@ export default function LearnerQuizzesPage() {
     if (quizState === 'RESULT') {
         const passed = lastResult.passed
         return (
-            <DashboardLayout role="LEARNER">
+            <DashboardLayout>
                 <div className="max-w-3xl mx-auto py-12 flex flex-col items-center justify-center min-h-[70vh]">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
@@ -290,7 +290,7 @@ export default function LearnerQuizzesPage() {
     }
 
     return (
-        <DashboardLayout role="LEARNER">
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-12 pb-24">
                 {/* Header */}
                 <div className="text-center space-y-4 pt-10">

@@ -109,7 +109,7 @@ export default function VolunteerCommunityPage() {
     }
 
     return (
-        <DashboardLayout role="VOLUNTEER">
+        <DashboardLayout>
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

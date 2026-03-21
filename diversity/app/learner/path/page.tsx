@@ -95,7 +95,7 @@ export default function LearningPathPage() {
     ]
 
     return (
-        <DashboardLayout role="LEARNER">
+        <DashboardLayout>
             <div className="max-w-5xl mx-auto space-y-12 pb-24">
                 {/* Header Section */}
                 <div className="text-center space-y-4 pt-10">

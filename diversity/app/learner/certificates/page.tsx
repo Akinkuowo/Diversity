@@ -67,7 +67,7 @@ export default function LearnerCertificatesPage() {
     )
 
     return (
-        <DashboardLayout role="LEARNER">
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-12">
                 {/* Header Section */}
                 <div className="relative overflow-hidden rounded-[3rem] bg-slate-900 p-12 text-white shadow-2xl">

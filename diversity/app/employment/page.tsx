@@ -83,7 +83,7 @@ export default function EmploymentBoardPage() {
     )
 
     return (
-        <DashboardLayout role="LEARNER">
+        <DashboardLayout>
             <div className="max-w-6xl mx-auto space-y-8">
                 {/* Hero / Header */}
                 <div className="relative overflow-hidden rounded-3xl bg-primary-600 p-8 md:p-12 text-white shadow-2xl">

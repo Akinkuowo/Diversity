@@ -28,7 +28,7 @@ export default function AdminReportsPage() {
     if (user.role !== 'ADMIN') return null
 
     return (
-        <DashboardLayout role={user.role}>
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-8 pb-20">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}

@@ -192,7 +192,7 @@ export default function BillingPage() {
     const currentPlanData = PLANS.find(p => p.id === currentPlan)!
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-5xl mx-auto space-y-10">
 
                 {/* Header */}

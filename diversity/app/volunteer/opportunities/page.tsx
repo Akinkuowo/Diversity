@@ -79,7 +79,7 @@ export default function VolunteerOpportunitiesPage() {
     }
 
     return (
-        <DashboardLayout role="VOLUNTEER">
+        <DashboardLayout>
             <div className="space-y-8 pb-12">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

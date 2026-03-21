@@ -183,7 +183,7 @@ function MessagesContent() {
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="flex h-[calc(100vh-80px)] gap-0 rounded-[2rem] overflow-hidden border border-slate-200/50 dark:border-slate-800/50 shadow-2xl bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
                 
                 {/* Sidebar */}

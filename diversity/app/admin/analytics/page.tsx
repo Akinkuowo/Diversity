@@ -35,7 +35,7 @@ export default function AdminAnalyticsPage() {
     }
 
     return (
-        <DashboardLayout role="ADMIN">
+        <DashboardLayout>
             <AdminAnalytics />
         </DashboardLayout>
     )

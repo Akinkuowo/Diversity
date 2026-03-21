@@ -55,7 +55,7 @@ export default function LearnerProgressPage() {
 
     if (loading) {
         return (
-            <DashboardLayout role="LEARNER">
+            <DashboardLayout>
                 <div className="py-24 flex flex-col items-center justify-center gap-6">
                     <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                     <p className="text-slate-500 font-black animate-pulse uppercase tracking-widest">Generating your impact report...</p>
@@ -67,7 +67,7 @@ export default function LearnerProgressPage() {
     const { stats, categoryStats, recentActivity } = data || { stats: {}, categoryStats: [], recentActivity: [] }
 
     return (
-        <DashboardLayout role="LEARNER">
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-12 pb-24">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-10">

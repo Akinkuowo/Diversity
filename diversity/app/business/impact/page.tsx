@@ -74,7 +74,7 @@ export default function BusinessImpactReportPage() {
 
     if (isLoading) {
         return (
-            <DashboardLayout role="BUSINESS">
+            <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="animate-pulse text-gray-400 font-medium">Generating your impact report...</div>
                 </div>
@@ -83,7 +83,7 @@ export default function BusinessImpactReportPage() {
     }
 
     return (
-        <DashboardLayout role="BUSINESS">
+        <DashboardLayout>
             <div className="space-y-8 pb-12">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">

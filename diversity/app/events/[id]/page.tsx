@@ -76,7 +76,7 @@ export default function EventDetailPage() {
 
     if (isLoading) {
         return (
-            <DashboardLayout role="COMMUNITY_MEMBER">
+            <DashboardLayout>
                 <div className="max-w-5xl mx-auto space-y-8 animate-pulse">
                     <div className="h-10 w-32 bg-gray-200 dark:bg-slate-800 rounded-lg" />
                     <div className="h-[400px] w-full bg-gray-200 dark:bg-slate-800 rounded-3xl" />
@@ -95,7 +95,7 @@ export default function EventDetailPage() {
     if (!event) return null
 
     return (
-        <DashboardLayout role={user?.role || 'COMMUNITY_MEMBER'}>
+        <DashboardLayout>
             <div className="max-w-5xl mx-auto space-y-8 pb-20">
                 {/* Back Button */}
                 <Button

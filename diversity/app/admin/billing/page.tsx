@@ -35,7 +35,7 @@ export default function AdminBillingPage() {
 
   if (loading) {
     return (
-      <DashboardLayout role="ADMIN">
+      <DashboardLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
@@ -46,7 +46,7 @@ export default function AdminBillingPage() {
   if (!isAdmin) return null;
 
   return (
-    <DashboardLayout role="ADMIN">
+    <DashboardLayout>
       <AdminBillingManagement />
     </DashboardLayout>
   );

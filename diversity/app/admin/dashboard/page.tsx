@@ -106,7 +106,7 @@ export default function AdminDashboard() {
 
     if (loading || !data) {
         return (
-            <DashboardLayout role="ADMIN">
+            <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="flex flex-col items-center gap-4">
                         <RefreshCw className="w-10 h-10 text-primary-600 animate-spin" />
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
     const { stats, recentUsers, pendingApprovals, userGrowthData, userRoleDistribution, activityData } = data
 
     return (
-        <DashboardLayout role="ADMIN">
+        <DashboardLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">

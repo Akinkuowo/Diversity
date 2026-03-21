@@ -86,7 +86,7 @@ export default function VolunteerPage() {
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-8 pb-12">
                 {/* Hero section */}
                 <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#4c1d95] via-[#6d28d9] to-[#4c1d95] p-8 md:p-14 text-white shadow-2xl">

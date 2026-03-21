@@ -83,7 +83,7 @@ import { api } from '@/lib/api'
 
 interface DashboardLayoutProps {
     children: React.ReactNode
-    role: 'ADMIN' | 'BUSINESS' | 'VOLUNTEER' | 'LEARNER' | 'COMMUNITY_MEMBER'
+    role?: 'ADMIN' | 'BUSINESS' | 'VOLUNTEER' | 'LEARNER' | 'COMMUNITY_MEMBER'
 }
 
 const roleColors = {
@@ -217,6 +217,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Diversity Badge', href: '/business/badge', icon: Award },
             { name: 'Employment', href: '/business/employment', icon: Users },
             { name: 'Courses', href: '/business/training', icon: BookOpen },
+            { name: 'AI Diversity Learning Tools', href: '/learner/ai-tools', icon: Sparkles },
             { name: 'Volunteering', href: '/business/volunteering', icon: Heart },
             { name: 'Sponsorships', href: '/business/sponsorships', icon: CircleDollarSign },
             { name: 'Impact Report', href: '/business/impact', icon: Target },
@@ -232,6 +233,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Achievements', href: '/volunteer/achievements', icon: Trophy },
             { name: 'Events', href: '/events', icon: Calendar },
             { name: 'Courses', href: '/volunteer/training', icon: BookOpen },
+            { name: 'AI Diversity Learning Tools', href: '/learner/ai-tools', icon: Sparkles },
             { name: 'Jobs', href: '/volunteer/employment', icon: Briefcase },
             { name: 'Community', href: '/volunteer/community', icon: Users2 },
             { name: 'Resources', href: '/resources', icon: BookOpen },
@@ -241,6 +243,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
         LEARNER: [
             { name: 'Dashboard', href: '/learner/dashboard', icon: LayoutDashboard },
             { name: 'Courses', href: '/learner/courses', icon: BookOpen },
+            { name: 'AI Diversity Learning Tools', href: '/learner/ai-tools', icon: Sparkles },
             { name: 'Learning Path', href: '/learner/path', icon: TrendingUp },
             { name: 'Certificates', href: '/learner/certificates', icon: Award },
             { name: 'Quizzes', href: '/learner/quizzes', icon: FileText },
@@ -256,6 +259,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             { name: 'Events', href: '/events', icon: Calendar },
             { name: 'Forums', href: '/forums', icon: MessageCircle },
             { name: 'Courses', href: '/learner/courses', icon: BookOpen },
+            { name: 'AI Diversity Learning Tools', href: '/learner/ai-tools', icon: Sparkles },
             { name: 'Resources', href: '/resources', icon: BookOpen },
             { name: 'Businesses', href: '/community/businesses', icon: Building2 },
             { name: 'Volunteer', href: '/community/volunteer', icon: Heart },
@@ -266,7 +270,8 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
         ],
     }
 
-    const RoleIcon = roleIcons[role]
+    const effectiveRole = (role || user?.role || 'LEARNER') as keyof typeof navigation
+    const RoleIcon = roleIcons[effectiveRole as keyof typeof roleIcons] || Shield
 
     return (
         <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
@@ -274,8 +279,8 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
                 <SheetContent side="left" className="w-72 p-0">
                     <MobileSidebar
-                        navigation={navigation[role]}
-                        role={role}
+                        navigation={navigation[effectiveRole]}
+                        role={effectiveRole}
                         onClose={() => setIsSidebarOpen(false)}
                     />
                 </SheetContent>
@@ -283,7 +288,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
             {/* Desktop Sidebar */}
             <aside className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-800 hidden lg:block">
-                <DesktopSidebar navigation={navigation[role]} role={role} />
+                <DesktopSidebar navigation={navigation[effectiveRole]} role={effectiveRole} />
             </aside>
 
             {/* Main Content */}
@@ -449,7 +454,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                                         </Avatar>
                                         <div className="hidden md:block text-left">
                                             <p className="text-sm font-medium">{user ? `${user.firstName} ${user.lastName || ''}` : 'Loading...'}</p>
-                                            <p className="text-xs text-gray-500">{role.toLowerCase().replace('_', ' ')}</p>
+                                            <p className="text-xs text-gray-500">{(user?.role || effectiveRole).toLowerCase().replace('_', ' ')}</p>
                                         </div>
                                         <ChevronDown className="w-4 h-4 hidden md:block" />
                                     </Button>

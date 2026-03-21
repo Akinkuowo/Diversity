@@ -39,6 +39,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface CourseCurriculumProps {
     courseId: string
@@ -48,6 +49,8 @@ interface CourseCurriculumProps {
 export default function CourseCurriculum({ courseId, courseTitle }: CourseCurriculumProps) {
     const [modules, setModules] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isPublished, setIsPublished] = useState(false)
+    const [isPublishing, setIsPublishing] = useState(false)
     const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({})
 
     // Modals
@@ -76,11 +79,15 @@ export default function CourseCurriculum({ courseId, courseTitle }: CourseCurric
     const fetchCurriculum = useCallback(async () => {
         setIsLoading(true)
         try {
-            const data = await api.get(`/admin/courses/${courseId}/curriculum`)
-            setModules(data)
+            const [curriculumData, courseData] = await Promise.all([
+                api.get(`/admin/courses/${courseId}/curriculum`),
+                api.get(`/courses/${courseId}`)
+            ])
+            setModules(curriculumData)
+            setIsPublished(courseData.isPublished)
             // Expand first module by default if not already set
-            if (data.length > 0 && Object.keys(expandedModules).length === 0) {
-                setExpandedModules({ [data[0].id]: true })
+            if (curriculumData.length > 0 && Object.keys(expandedModules).length === 0) {
+                setExpandedModules({ [curriculumData[0].id]: true })
             }
         } catch (error) {
             toast.error('Failed to load curriculum')
@@ -207,20 +214,51 @@ export default function CourseCurriculum({ courseId, courseTitle }: CourseCurric
         }
     }
 
+    const togglePublishStatus = async () => {
+        setIsPublishing(true)
+        try {
+            await api.put(`/admin/courses/${courseId}`, { isPublished: !isPublished })
+            setIsPublished(!isPublished)
+            toast.success(!isPublished ? 'Course published and live!' : 'Course unpublished')
+        } catch (error) {
+            toast.error('Failed to update publishing status')
+        } finally {
+            setIsPublishing(false)
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <GripVertical className="w-5 h-5 text-gray-400" />
-                        Curriculum: <span className="text-primary-600">{courseTitle}</span>
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <GripVertical className="w-5 h-5 text-gray-400" />
+                            Curriculum: <span className="text-primary-600">{courseTitle}</span>
+                        </h2>
+                        <Badge variant={isPublished ? "default" : "secondary"} className={isPublished ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-gray-100 text-gray-500"}>
+                            {isPublished ? 'Published' : 'Draft'}
+                        </Badge>
+                    </div>
                     <p className="text-sm text-gray-500 mt-1">Add modules and lessons to structure your course</p>
                 </div>
-                <Button onClick={handleAddModule} className="bg-primary-600 hover:bg-primary-700 font-bold rounded-xl h-11">
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    New Module
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button 
+                        variant="outline" 
+                        onClick={togglePublishStatus} 
+                        disabled={isPublishing}
+                        className={cn(
+                            "font-bold rounded-xl h-11 border-2",
+                            isPublished ? "text-red-600 border-red-100 hover:bg-red-50" : "text-green-600 border-green-100 hover:bg-green-50"
+                        )}
+                    >
+                        {isPublishing ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : isPublished ? 'Unpublish' : 'Publish Course'}
+                    </Button>
+                    <Button onClick={handleAddModule} className="bg-primary-600 hover:bg-primary-700 font-bold rounded-xl h-11">
+                        <PlusCircle className="w-4 h-4 mr-2" />
+                        New Module
+                    </Button>
+                </div>
             </div>
 
             {isLoading ? (

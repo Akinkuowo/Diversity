@@ -121,7 +121,7 @@ export default function BusinessDirectoryPage() {
     const role = user?.role || 'COMMUNITY_MEMBER'
 
     return (
-        <DashboardLayout role={role}>
+        <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-8 pb-12">
                 {/* Hero section */}
                 <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] p-8 md:p-14 text-white shadow-2xl">

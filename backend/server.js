@@ -2894,6 +2894,72 @@ fastify.get('/businesses/me/courses', async (request, reply) => {
   }
 });
 
+// GET Business Employees
+fastify.get('/businesses/me/employees', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId },
+      include: {
+        employees: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    });
+
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+    return business.employees;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch business employees' });
+  }
+});
+
+// POST Bulk Enroll Employees
+fastify.post('/businesses/me/courses/:id/enroll', async (request, reply) => {
+  const decoded = authenticate(request, reply);
+  if (!decoded) return;
+
+  const { id } = request.params;
+  const { userIds } = request.body;
+
+  if (!Array.isArray(userIds)) {
+    return reply.code(400).send({ message: 'userIds must be an array' });
+  }
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { userId: decoded.userId }
+    });
+    if (!business) return reply.code(403).send({ message: 'Unauthorized' });
+
+    const enrollments = await Promise.all(userIds.map(async (userId) => {
+      return prisma.enrollment.upsert({
+        where: { userId_courseId: { userId, courseId: id } },
+        update: {},
+        create: {
+          userId,
+          courseId: id,
+          progress: 0
+        }
+      });
+    }));
+
+    return { message: `Successfully enrolled ${enrollments.length} employees`, count: enrollments.length };
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to bulk enroll employees' });
+  }
+});
+
 // POST Create a new Business Course
 fastify.post('/businesses/me/courses', async (request, reply) => {
   const decoded = authenticate(request, reply);
@@ -3083,6 +3149,33 @@ fastify.post('/volunteers/me/enroll/:courseId', async (request, reply) => {
   } catch (error) {
     fastify.log.error(error);
     return reply.code(500).send({ message: 'Failed to enroll in course' });
+  }
+});
+
+// --- GENERIC COURSE ROUTES ---
+
+// GET All Public Published Courses
+fastify.get('/courses', async (request, reply) => {
+  try {
+    const courses = await prisma.course.findMany({
+      where: { 
+        type: 'PUBLIC',
+        isPublished: true 
+      },
+      include: {
+        _count: {
+          select: { modules: true, enrollments: true }
+        },
+        authorBusiness: {
+          select: { companyName: true, logo: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return courses;
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({ message: 'Failed to fetch courses' });
   }
 });
 

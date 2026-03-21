@@ -205,7 +205,7 @@ export default function VolunteerAchievementsPage() {
     const lockedBadges = volunteerAchievements.filter(b => b.status === 'locked')
 
     return (
-        <DashboardLayout role="VOLUNTEER">
+        <DashboardLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
